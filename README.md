@@ -2,8 +2,6 @@
 
 Experimental built-in instrument-cluster host for Waze on BYD DiLink.
 
-[Українська документація](README.uk.md)
-
 The project adds a local AndroidX Car App host to Waze 5.22.90.123. It opens
 Waze's own cluster session on a display whose name contains
 `XDJAScreenProjection`. The application label is **Waze for BYD**; the package
@@ -13,6 +11,16 @@ This is an independent experimental modification, with no affiliation to Waze,
 Google or BYD. This repository contains the host source and build tools; the
 original application, decoded application code, APKs and signing keys are local
 inputs and are not included.
+
+## Download
+
+Get the APK and SHA-256 checksum from the
+[test.2 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.2).
+See the [release notes](docs/releases/v5.22.90.123-byd.test.2.md) for validation
+results, update requirements and known limitations.
+
+Project documentation and release notes are maintained in English. Additional
+languages will be added as needed.
 
 ## Status
 
