@@ -12,6 +12,11 @@ Google or BYD. This repository contains the host source and build tools; the
 original application, decoded application code, APKs and signing keys are local
 inputs and are not included.
 
+## Project website
+
+[Visit Waze for BYD](https://romanchukg-cloud.github.io/waze-for-byd/) for the
+APK download, compatibility requirements, test status and installation help.
+
 ## Download
 
 Get the APK and SHA-256 checksum from the
@@ -144,3 +149,12 @@ when testing. Diagnostic tag: `WazeClusterTest`.
 
 The initial source was imported from the existing local cluster experiment.
 Development continues in `patch/`; historical folders remain local and intact.
+
+
+## Website maintenance
+
+The GitHub Pages site is buildless HTML/CSS in `docs/index.html` and `docs/assets/`.
+Pages publishes the `/docs` directory from `main`; `.nojekyll` disables Jekyll.
+When a new APK is released, update the version, download URLs, file size,
+checksum and test status on the page along with the release documentation.
+The cluster illustration uses sample data and is explicitly labeled as a demo.
