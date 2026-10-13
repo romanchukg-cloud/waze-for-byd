@@ -19,6 +19,12 @@ Get the APK and SHA-256 checksum from the
 See the [release notes](docs/releases/v5.22.90.123-byd.test.3.md) for validation
 results, update requirements and known limitations.
 
+**Before installing:** Android 10+ and an ARM64/ARMv7 device are required.
+This APK uses package `com.waze` with our own signing certificate. It cannot
+update official Waze or another modification signed with a different key.
+See [installation requirements and troubleshooting](docs/installation.md),
+including what to report if the installer says the package is invalid.
+
 Project documentation and release notes are maintained in English. Additional
 languages will be added as needed.
 
