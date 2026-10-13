@@ -12,6 +12,8 @@ import android.util.Log;
 import android.view.*;
 import androidx.car.app.*;
 import androidx.car.app.navigation.INavigationHost;
+import androidx.car.app.navigation.model.NavigationTemplate;
+import androidx.car.app.navigation.model.Trip;
 import androidx.car.app.serialization.Bundleable;
 
 /** Test host: uses the app's own Car App library; no duplicate AndroidX classes. */
@@ -21,6 +23,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private final Application app;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final DisplayManager displays;
+    private final BydGuidanceBridge guidance;
     private Presentation presentation;
     private SurfaceView view;
     private ICarApp car;
@@ -29,7 +32,10 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private Intent sessionIntent;
     private ServiceConnection connection;
     private int generation;
-    private boolean ready, templatePending;
+    private boolean ready, templatePending, templateDirty, navigationEnded;
+    private long lastTripAt = -GuidanceSession.STALE_MS;
+    private long lastStateAt = -GuidanceSession.STALE_MS;
+    private WazeClusterState stateReader;
     private SurfaceContainer delivered;
     private final Runnable refresh = () -> requestTemplate();
     private final Runnable retry = () -> reconcile();
@@ -43,11 +49,38 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             instance.main.postDelayed(instance.retry, 3000);
         } catch (Throwable e) { Log.e(TAG, "install", e); }
     }
+    public static void onClusterState(Object state) {
+        // Called from a pinned observer hook after the immutable state's fields
+        // are initialized. Never throw back into Waze's navigation pipeline.
+        try {
+            ClusterHost host = instance;
+            if (host == null) return;
+            final int expected = host.generation;
+            final long receivedAt = SystemClock.elapsedRealtime();
+            host.main.post(() -> {
+                if (expected != host.generation || host.connection == null
+                        || SystemClock.elapsedRealtime() - receivedAt >= GuidanceSession.STALE_MS) return;
+                try {
+                    if (host.stateReader == null) host.stateReader = new WazeClusterState();
+                    GuidanceFrame frame = host.stateReader.frame(state, host.app, System.currentTimeMillis());
+                    host.lastStateAt = receivedAt;
+                    host.guidance.update(frame);
+                    Log.i(TAG, "cluster state guidance " + (frame == null ? "inactive/loading" : "available"));
+                } catch (Throwable e) { host.guidance.end(); Log.e(TAG, "cluster state observer", e); }
+            });
+        } catch (Throwable e) { Log.e(TAG, "cluster state dispatch", e); }
+    }
     private ClusterHost(Application app) {
         this.app = app;
+        guidance = new BydGuidanceBridge(app, main);
+        BroadcastReceiver shutdown = new BroadcastReceiver() {
+            public void onReceive(Context context, Intent intent) { close(); }
+        };
+        if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(shutdown, new IntentFilter(Intent.ACTION_SHUTDOWN), Context.RECEIVER_NOT_EXPORTED);
+        else app.registerReceiver(shutdown, new IntentFilter(Intent.ACTION_SHUTDOWN));
         displays = (DisplayManager) app.getSystemService(Context.DISPLAY_SERVICE);
         displays.registerDisplayListener(this, main);
-        Log.i(TAG, "installed test.1; map shown while Waze process is running");
+        Log.i(TAG, "installed test.3; stock BYD guidance bridge enabled");
     }
     private void safely(String stage, Work work) {
         try { work.run(); } catch (Throwable e) { Log.e(TAG, stage, e); }
@@ -78,13 +111,17 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     }
     private void reconcile() {
         main.removeCallbacks(retry);
+        // Guidance must not depend on the map display or overlay permission.
+        if (connection == null) {
+            try { bind(); } catch (Throwable e) { Log.e(TAG, "bind", e); resetAndRetry(); return; }
+        }
         Display target = null;
         for (Display d : displays.getDisplays()) {
             if (d.getDisplayId() != Display.DEFAULT_DISPLAY && d.getName().contains("XDJAScreenProjection")) {
                 target = d; break;
             }
         }
-        if (presentation != null && (target == null || presentation.getDisplay().getDisplayId() != target.getDisplayId())) close();
+        if (presentation != null && (target == null || presentation.getDisplay().getDisplayId() != target.getDisplayId())) dismissMap();
         if (target == null) { Log.i(TAG, "waiting for XDJAScreenProjection display"); main.postDelayed(retry, 10000); return; }
         if (presentation != null) return;
         try {
@@ -107,8 +144,12 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             };
             presentation.show();
             Log.i(TAG, "display " + selected.getDisplayId() + " " + selected.getName());
-            bind();
-        } catch (Throwable e) { Log.e(TAG, "show/bind", e); resetAndRetry(); }
+            sendSurface();
+        } catch (Throwable e) {
+            Log.e(TAG, "show map; guidance session remains connected", e);
+            dismissMap();
+            main.postDelayed(retry, 10000);
+        }
     }
     private void bind() {
         final int expected = ++generation;
@@ -133,7 +174,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         if (!app.bindService(sessionIntent, connection, Context.BIND_AUTO_CREATE)) throw new IllegalStateException("bindService returned false");
     }
     private void create() throws Exception {
-        Configuration config = new Configuration(presentation.getContext().getResources().getConfiguration());
+        Configuration config = new Configuration(app.getResources().getConfiguration());
         car.onAppCreate(new CarHost(), sessionIntent, config, done("create", value ->
             car.onAppStart(done("start", started -> car.onAppResume(done("resume", resumed -> {
                 ready = true;
@@ -141,6 +182,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                 car.getManager("app", done("manager", result -> {
                     Object object = result.get();
                     manager = object instanceof IAppManager ? (IAppManager)object : IAppManager.Stub.asInterface((IBinder)object);
+                    templateDirty = true;
                     requestTemplate();
                 }));
             }))))));
@@ -148,11 +190,20 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private void requestTemplate() {
         if (!ready || manager == null || templatePending) return;
         templatePending = true;
+        templateDirty = false;
+        final long requestedAt = SystemClock.elapsedRealtime();
         safely("getTemplate", () -> manager.getTemplate(done("template", result -> {
             templatePending = false;
             Object template = result.get();
             Log.i(TAG, "template: " + template);
+            if (!navigationEnded && SystemClock.elapsedRealtime() - lastTripAt >= GuidanceSession.STALE_MS
+                    && SystemClock.elapsedRealtime() - lastStateAt >= GuidanceSession.STALE_MS) {
+                guidance.update(template instanceof NavigationTemplate
+                        && SystemClock.elapsedRealtime() - requestedAt < GuidanceSession.STALE_MS
+                        ? WazeGuidance.fromTemplate((NavigationTemplate) template, System.currentTimeMillis()) : null);
+            }
             sendSurface();
+            if (templateDirty) { main.removeCallbacks(refresh); main.postDelayed(refresh, 100); }
         })));
     }
     private void sendSurface() {
@@ -178,15 +229,24 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         if (callback != null && old != null) safely("surface.destroy", () -> callback.onSurfaceDestroyed(Bundleable.create(old), done("surface.destroyed", null)));
     }
     private void close() {
+        guidance.end();
         destroySurface();
         if (car != null && ready) {
             safely("pause", () -> car.onAppPause(done("pause", null)));
             safely("stop", () -> car.onAppStop(done("stop", null)));
         }
         ++generation;
-        ready = false; templatePending = false; callback = null; manager = null; car = null;
+        ready = false; templatePending = false; templateDirty = false; callback = null; manager = null; car = null;
+        navigationEnded = false;
+        lastTripAt = -GuidanceSession.STALE_MS;
+        lastStateAt = -GuidanceSession.STALE_MS;
         main.removeCallbacks(refresh);
+        main.removeCallbacks(retry);
         if (connection != null) { safely("unbind", () -> app.unbindService(connection)); connection = null; }
+        dismissMap();
+    }
+    private void dismissMap() {
+        destroySurface();
         if (presentation != null) { Presentation old = presentation; presentation = null; safely("dismiss", () -> old.dismiss()); }
         view = null;
     }
@@ -195,17 +255,26 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     public void onDisplayRemoved(int id) { reconcile(); }
     public void onDisplayChanged(int id) { reconcile(); }
     private final class CarHost extends ICarHost.Stub {
+        private final int expected = generation;
         private final AppHost apps = new AppHost();
         private final NavigationHost nav = new NavigationHost();
         public int getInterfaceVersion() { return 1; }
         public IBinder getHost(String type) { Log.i(TAG, "getHost " + type); return "app".equals(type) ? apps : "navigation".equals(type) ? nav : null; }
         public void startCarApp(Intent intent) { Log.i(TAG, "startCarApp requested"); }
-        public void finish() { main.post(() -> close()); }
+        public void finish() { main.post(() -> { if (expected == generation) close(); }); }
     }
     private final class AppHost extends IAppHost.Stub {
+        private final int expected = generation;
         public int getInterfaceVersion() { return 1; }
-        public void invalidate() { main.removeCallbacks(refresh); main.postDelayed(refresh, 100); }
-        public void setSurfaceCallback(ISurfaceCallback value) { main.post(() -> { destroySurface(); callback = value; Log.i(TAG, "surface callback " + value); sendSurface(); }); }
+        public void invalidate() { main.post(() -> {
+            if (expected != generation) return;
+            templateDirty = true;
+            main.removeCallbacks(refresh); main.postDelayed(refresh, 100);
+        }); }
+        public void setSurfaceCallback(ISurfaceCallback value) { main.post(() -> {
+            if (expected != generation) return;
+            destroySurface(); callback = value; Log.i(TAG, "surface callback " + value); sendSurface();
+        }); }
         public void showToast(CharSequence text, int duration) { Log.i(TAG, "toast " + text); }
         public void sendLocation(Location value) { }
         public void showAlert(Bundleable value) { Log.i(TAG, "alert"); }
@@ -213,10 +282,30 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         public Bundleable openMicrophone(Bundleable value) { return null; }
     }
     private final class NavigationHost extends INavigationHost.Stub {
+        private final int expected = generation;
         public int getInterfaceVersion() { return 1; }
-        public void navigationStarted() { Log.i(TAG, "navigationStarted"); }
-        public void navigationEnded() { Log.i(TAG, "navigationEnded"); }
-        public void updateTrip(Bundleable trip) { Log.i(TAG, "updateTrip received"); }
+        public void navigationStarted() { main.post(() -> {
+            if (expected != generation) return;
+            navigationEnded = false;
+            Log.i(TAG, "navigationStarted");
+        }); }
+        public void navigationEnded() { main.post(() -> {
+            if (expected != generation) return;
+            navigationEnded = true;
+            guidance.end();
+            Log.i(TAG, "navigationEnded");
+        }); }
+        public void updateTrip(Bundleable trip) { main.post(() -> {
+            if (expected != generation || navigationEnded
+                    || SystemClock.elapsedRealtime() - lastStateAt < GuidanceSession.STALE_MS) return;
+            try {
+                Object value = trip == null ? null : trip.get();
+                if (!(value instanceof Trip)) throw new IllegalArgumentException("Expected AndroidX Trip");
+                lastTripAt = SystemClock.elapsedRealtime();
+                guidance.update(WazeGuidance.fromTrip((Trip) value, System.currentTimeMillis()));
+                Log.i(TAG, "updateTrip processed");
+            } catch (Exception e) { guidance.end(); Log.e(TAG, "invalid Trip", e); }
+        }); }
         public void setVoiceAssistantCapabilities(Bundleable value) { }
     }
 }

@@ -31,5 +31,8 @@ __pycache__/
 /patch/decoded
 /patch/classes/
 /patch/helper-dex/
+/patch/test-out/
+/patch/smali-overrides/
+/patch/car-*.png
 /patch/car-api.jar
 /patch/car-app.aar
