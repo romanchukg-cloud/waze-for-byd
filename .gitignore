@@ -1,0 +1,34 @@
+# Local project context and linked historical material
+/AGENTS.md
+/STATE.uk.md
+/FILES.json
+/WAZE_CLUSTER_ANALYSIS.md
+/waze-cluster-test
+/waze-cluster-companion
+# APKs, signing material, dependencies and generated files
+*.apk
+*.apks
+*.aab
+*.idsig
+*.sha256
+*.keystore
+*.jks
+*.pem
+*.key
+*.p12
+*.pfx
+*.jar
+*.aar
+*.dex
+*.class
+*.log
+.env
+.env.*
+local.properties
+__pycache__/
+.DS_Store
+/patch/decoded
+/patch/classes/
+/patch/helper-dex/
+/patch/car-api.jar
+/patch/car-app.aar
