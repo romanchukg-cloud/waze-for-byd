@@ -21,8 +21,9 @@ if out.exists():
     shutil.rmtree(out)
 (out / 'classes').mkdir(parents=True)
 sources = [root / 'src/local/waze/cluster' / (name + '.java') for name in
-           ('GuidanceFrame', 'GuidanceSession', 'WazeGuidance', 'BydGuidanceBridge')]
-sources += [root / 'test/GuidanceTests.java', root / 'test/GuidanceAndroidTests.java']
+           ('GuidanceFrame', 'GuidanceSession', 'WazeGuidance', 'BydGuidanceBridge', 'StandaloneHudPackets', 'StandaloneHudGate', 'StandaloneHudOutput')]
+sources += sorted((root / 'src/local/waze/diagnostics').glob('*.java'))
+sources += [root / 'test/GuidanceTests.java', root / 'test/GuidanceAndroidTests.java', root / 'test/StandaloneHudTests.java']
 
 def run(*command):
     subprocess.run(list(map(str, command)), check=True)
@@ -30,6 +31,7 @@ def run(*command):
 run('javac', '-source', '8', '-target', '8', '-Xlint:-options', '-cp',
     f'{android}:{root / "car-api.jar"}', '-d', out / 'classes', *sources)
 run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.GuidanceTests')
+run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.StandaloneHudTests')
 if args.android_serial:
     (out / 'dex').mkdir()
     run(bt / 'd8', '--min-api', '29', '--lib', android, '--output', out / 'dex',

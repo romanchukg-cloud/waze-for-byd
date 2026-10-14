@@ -22,6 +22,7 @@ public final class GuidanceAndroidTests {
     }
     public static void main(String[] args) {
         GuidanceTests.main(args);
+        StandaloneHudTests.main(args);
         Intent guide = BydGuidanceBridge.guidanceIntent(new GuidanceFrame(17, 4, 350, "Next road", 12000, 1800));
         verify(guide, "KEY_TYPE", "IS_BYD_MAP", "IS_BYD_BAIDU_MAP", "TYPE", "EXTRA_STATE", "EXTRA_IS_FOREGROUND",
                 "NEW_ICON", "ROUNG_ABOUT_NUM", "SEG_REMAIN_DIS", "NEXT_ROAD_NAME", "ROUTE_REMAIN_DIS", "ROUTE_REMAIN_TIME");
@@ -36,6 +37,14 @@ public final class GuidanceAndroidTests {
         for (String key : new String[]{"NEW_ICON", "SEG_REMAIN_DIS", "ROUTE_REMAIN_DIS", "ROUTE_REMAIN_TIME"})
             GuidanceTests.check(end.getIntExtra(key, 0) == -1, "End clears " + key);
         GuidanceTests.check(end.getStringExtra("NEXT_ROAD_NAME").equals(""), "End clears road");
+        Intent hud = StandaloneHudGate.intent(StandaloneHudPackets.START);
+        GuidanceTests.check("byd.hud.NAVIGATION".equals(hud.getAction()), "Standalone HUD action");
+        GuidanceTests.check(hud.getComponent().getPackageName().equals("com.byd.clusterdebug")
+            && hud.getComponent().getClassName().equals("com.byd.clusterdebug.BroadcastReceiverCAN"), "Exact exported HUD receiver component");
+        GuidanceTests.check(hud.getExtras().keySet().equals(java.util.Collections.singleton("normal"))
+            && hud.getExtras().get("normal").getClass()==String.class, "One String normal extra");
+        GuidanceTests.check(hud.getStringExtra("normal").equals("43,E0,00,3A,01,02")
+            && hud.getFlags()==Intent.FLAG_RECEIVER_FOREGROUND, "Start packet and foreground flag");
         System.out.println("GuidanceAndroidTests: Intent protocol verified; no broadcasts sent");
     }
 }

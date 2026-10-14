@@ -6,43 +6,67 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
+import local.waze.diagnostics.Diagnostics;
 
-/** Stock DiLink 5 AMap broadcast transport. A successful send is not an ACK. */
+/** Select one verified protocol target: gated 5.1 HUD, otherwise existing 5.0 AMap. No display ACK. */
 public final class BydGuidanceBridge {
     private static final String TAG = "WazeBydGuidance";
     private final Handler main;
+    private GuidanceFrame lastSent;
+    private final boolean standalone;
     private final GuidanceSession session;
     private final Runnable tick = new Runnable() {
         public void run() {
             safely(() -> session.tick(SystemClock.elapsedRealtime()));
-            main.postDelayed(this, 1000);
+            main.postDelayed(this, standalone ? 250 : 1000);
         }
     };
     public BydGuidanceBridge(Context context, Handler main) {
         this.main = main;
+        standalone = StandaloneHudGate.eligible(context);
         SharedPreferences prefs = context.getSharedPreferences("waze_for_byd_guidance", Context.MODE_PRIVATE);
+        final StandaloneHudOutput hud = new StandaloneHudOutput(packet -> context.sendBroadcast(StandaloneHudGate.intent(packet)));
+        final String marker = standalone ? "standalone_hud_pending_clear" : "guidance_shown";
         session = new GuidanceSession(new GuidanceSession.Output() {
             public void guidance(GuidanceFrame frame) {
-                context.sendBroadcast(guidanceIntent(frame));
+                String reason = frame.equals(lastSent) ? "keepalive" : "changed";
+                try {
+                    if(standalone) hud.guidance(frame);
+                    else context.sendBroadcast(guidanceIntent(frame));
+                }
+                catch (RuntimeException e) { record(frame, "failed", reason); throw e; }
+                record(frame, "sent", reason);
+                lastSent = frame;
                 Log.i(TAG, "guidance broadcast sent; icon=" + frame.icon + " turnMeters=" + frame.turnMeters);
             }
             public void end() {
-                context.sendBroadcast(endIntent());
+                try { if(standalone) hud.end(); else context.sendBroadcast(endIntent()); }
+                catch (RuntimeException e) { record(null, "failed", "end"); throw e; }
+                record(null, "sent", "end");
+                lastSent = null;
                 Log.i(TAG, "end broadcast sent");
             }
         }, new GuidanceSession.Store() {
-            public boolean wasShown() { return prefs.getBoolean("guidance_shown", false); }
-            public boolean setShown(boolean shown) { return prefs.edit().putBoolean("guidance_shown", shown).commit(); }
-        });
+            public boolean wasShown() { return prefs.getBoolean(marker, false); }
+            public boolean setShown(boolean shown) { return prefs.edit().putBoolean(marker, shown).commit(); }
+        }, standalone ? 1000 : GuidanceSession.KEEPALIVE_MS);
+        Log.i(TAG, standalone ? "Using gated DiLink 5.1 standalone HUD transport" : "Using DiLink 5 AMap transport");
         safely(() -> session.end()); // Recover a card left behind by process death.
-        main.postDelayed(tick, 1000);
+        main.postDelayed(tick, standalone ? 250 : 1000);
     }
     public void update(GuidanceFrame frame) {
-        safely(() -> session.update(frame, SystemClock.elapsedRealtime()));
+        GuidanceFrame accepted = standalone && frame != null && StandaloneHudPackets.guidance(frame) == null ? null : frame;
+        safely(() -> session.update(accepted, SystemClock.elapsedRealtime()));
     }
     public void end() { safely(() -> session.end()); }
     private void safely(Runnable work) {
-        try { work.run(); } catch (RuntimeException e) { Log.e(TAG, "broadcast/persistence failed; will retry", e); }
+        try { work.run(); } catch (RuntimeException e) { Diagnostics.failure("adapter", e instanceof SecurityException ? "permission_denied" : "internal_error"); Log.e(TAG, "broadcast/persistence failed; will retry", e); }
+    }
+    private static void record(GuidanceFrame frame, String outcome, String reason) {
+        // Only approved numeric fields. NEXT_ROAD_NAME never enters diagnostics.
+        Diagnostics.event("guidance_send", "outcome", outcome, "icon", frame == null ? -1 : frame.icon,
+            "turn_meters", frame == null ? -1 : frame.turnMeters, "route_meters", frame == null ? -1 : frame.routeMeters,
+            "route_seconds", frame == null ? -1 : frame.routeSeconds, "reason", reason);
     }
     private static Intent base(int type) {
         return new Intent("AUTONAVI_STANDARD_BROADCAST_SEND")

@@ -2,6 +2,7 @@
 """Build Waze for BYD from the pinned local APK and an existing signing key."""
 import hashlib, os, pathlib, shutil, subprocess, zipfile
 from manifest_label import rename_application
+from manifest_support import add_support_components
 root = pathlib.Path(__file__).resolve().parent
 sdk = pathlib.Path(os.environ.get('ANDROID_SDK_ROOT', pathlib.Path.home() / 'Library/Android/sdk'))
 bt = sdk / 'build-tools/36.0.0'
@@ -57,11 +58,11 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
         if item.filename.upper().startswith('META-INF/') and item.filename.upper().endswith(('.SF', '.RSA', '.DSA', '.EC', 'MANIFEST.MF')): continue
         data = (root / item.filename).read_bytes() if item.filename in ('classes5.dex', 'classes6.dex') else src.read(item)
         if item.filename == 'AndroidManifest.xml':
-            data = rename_application(data, 'Waze for BYD')
+            data = add_support_components(rename_application(data, 'Waze for BYD'))
         dst.writestr(item, data)
     dst.write(root / 'helper-dex/classes.dex', 'classes11.dex', compress_type=zipfile.ZIP_DEFLATED)
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
-output = 'Waze-for-BYD-5.22.90.123-test.3.apk'
+output = 'Waze-for-BYD-5.22.90.123-test.4.apk'
 run(bt / 'apksigner', 'sign', '--ks', key, '--ks-key-alias', alias, '--ks-pass', 'env:WAZE_KEYSTORE_PASSWORD', '--key-pass', 'env:WAZE_KEY_PASSWORD', '--out', output, 'aligned.apk')
 run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)
@@ -69,7 +70,7 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / output) as dst:
     for name in src.namelist():
         if name in ('classes5.dex', 'classes6.dex', 'AndroidManifest.xml') or name.upper().startswith('META-INF/'): continue
         assert src.read(name) == dst.read(name), f'Unexpected modification: {name}'
-    assert dst.read('AndroidManifest.xml') == rename_application(src.read('AndroidManifest.xml'), 'Waze for BYD')
+    assert dst.read('AndroidManifest.xml') == add_support_components(rename_application(src.read('AndroidManifest.xml'), 'Waze for BYD'))
 checksum = hashlib.sha256((root / output).read_bytes()).hexdigest()
 (root / (output + '.sha256')).write_text(f'{checksum}  {output}\n')
 print('Payload integrity verified; SHA-256', checksum)

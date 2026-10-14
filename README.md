@@ -20,8 +20,8 @@ APK download, compatibility requirements, test status and installation help.
 ## Download
 
 Get the APK and SHA-256 checksum from the
-[test.3 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.3).
-See the [release notes](docs/releases/v5.22.90.123-byd.test.3.md) for validation
+[test.4 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.4).
+See the [release notes](docs/releases/v5.22.90.123-byd.test.4.md) for validation
 results, update requirements and known limitations.
 
 **Before installing:** Android 10+ and an ARM64/ARMv7 device are required.
@@ -97,6 +97,22 @@ AppCompat theme errors were also recorded and need separate reproduction.
 
 ## Build
 
+### test.4 additions
+
+This release adds [Support and automatic diagnostics](docs/diagnostics.md) and a
+[gated DiLink 5.1 HUD transport](docs/dilink-5.1-hud.md). Automatic sending starts
+after the first-use Continue with the default-selected choice and verified server
+support. Only measured integration failures trigger reports, with one new automatic
+report per 24 hours. Manual Preview/Send and export remain available with automatic
+sending off. A limited technical summary may appear in public GitHub Issues.
+
+The new DiLink 5.1 path requires an exact known firmware/receiver match and has not
+been physically verified in Waze. The earlier Android 12 AMap path remains available.
+Steering-wheel zoom remains [research only](docs/wheel-zoom-research.md).
+
+
+### Requirements and command
+
 Requires Python 3, JDK 17+, Android SDK platform 35, build-tools 36.0.0,
 apktool 2.11.1 and network access to Google Maven on the first build.
 
@@ -115,10 +131,12 @@ For a distinct key password, set `WAZE_KEY_PASSWORD` as well. The script refuses
 to create a new signing key. The input APK must have SHA-256
 `a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80`.
 
-Output: `patch/Waze-for-BYD-5.22.90.123-test.3.apk` and its SHA-256 file.
+Output: `patch/Waze-for-BYD-5.22.90.123-test.4.apk` and its SHA-256 file.
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
-original payload entries except `classes5.dex`, `classes6.dex`, the application label in
-`AndroidManifest.xml`, and obsolete signature entries. It adds the host as
+original payload entries except `classes5.dex`, `classes6.dex`,
+`AndroidManifest.xml`, and obsolete signature entries. Manifest changes are the
+application label, two diagnostics components and one package-visibility query
+for the gated HUD receiver. It adds the host as
 `classes11.dex`. DEX 5 contains one read-only state observer call; DEX 6 contains
 the startup hook. Smali overlays leave the original decoded cache intact.
 Resources and native libraries remain unchanged.
@@ -144,6 +162,9 @@ when testing. Diagnostic tag: `WazeClusterTest`.
 - `patch/src/local/waze/cluster/BydGuidanceBridge.java`: stock adapter broadcast output.
 - `patch/build.py`: pinned APK patch, assembly, signing and integrity checks.
 - `patch/manifest_label.py`: targeted binary manifest label change.
+- `patch/manifest_support.py`: append diagnostics components and HUD package visibility.
+- `patch/src/local/waze/diagnostics/`: private structured recording, consent UI, queue, manual v1 and capability-gated automatic v2 client.
+- `patch/src/local/waze/cluster/StandaloneHud*.java`: gated DiLink 5.1 packets and lifecycle.
 - `patch/Assemble.java`: assemble the modified DEX with apktool's smali tools.
 - `patch/test/VirtualCluster.java`: emulator display helper, not part of the APK.
 

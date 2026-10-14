@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#101c20">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Waze for BYD — Your next turn. On your BYD.">
-  <meta property="og:description" content="Experimental Waze guidance for the factory instrument cluster. Download test.3 and read the installation requirements.">
+  <meta property="og:description" content="Experimental Waze guidance for the factory instrument cluster. Download test.4 and read the installation requirements.">
   <meta property="og:url" content="https://romanchukg-cloud.github.io/waze-for-byd/">
   <link rel="canonical" href="https://romanchukg-cloud.github.io/waze-for-byd/">
   <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
@@ -33,14 +33,14 @@
   <div class="hero-shell">
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> EXPERIMENTAL RELEASE · TEST.3</p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> EXPERIMENTAL RELEASE · TEST.4</p>
           <h1 id="hero-title">Your next turn.<br><span>On your BYD.</span></h1>
           <p class="hero-description">Waze navigation, connected to your car’s factory instrument cluster. A modified APK for BYD DiLink, with HUD support on compatible vehicles.</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.3/Waze-for-BYD-5.22.90.123-test.3.apk">Download APK <span aria-hidden="true">↓</span></a>
-            <a class="button secondary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.3">Release notes <span aria-hidden="true">↗</span></a>
+            <a class="button primary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.4/Waze-for-BYD-5.22.90.123-test.4.apk">Download APK <span aria-hidden="true">↓</span></a>
+            <a class="button secondary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.4">Release notes <span aria-hidden="true">↗</span></a>
           </div>
-          <p class="download-meta">test.3 <span>·</span> Android 10+ <span>·</span> 131.8 MB</p>
+          <p class="download-meta">test.4 <span>·</span> Android 10+ <span>·</span> 131.8 MB</p>
           <a class="install-reminder" href="#install"><span aria-hidden="true">ⓘ</span> Already have Waze? Check update compatibility first.</a>
         </div>
         <figure class="cluster-figure">
@@ -67,6 +67,8 @@
       <article><span class="feature-number">02 / BUILT IN</span><h3>One modified APK</h3><p>The integration runs inside Waze. You keep the native navigation interface, without a separate companion application.</p></article>
       <article><span class="feature-number">03 / LIFECYCLE</span><h3>Updates, then clears</h3><p>Guidance refreshes while the source is active. Ending the route clears the card. Stale source data expires instead of leaving an old instruction.</p></article>
     </div>
+    <p class="feature-note">New in test.4: Settings → Support adds automatic reports for measured integration failures after the first-use Continue, plus manual preview, sending and export. Reports go to our diagnostics server; a limited summary may appear in public GitHub Issues. You can turn automatic sending off at any time. At most one new automatic report is created per 24 hours.</p>
+    <p class="feature-note">A gated DiLink 5.1 / Android 13 HUD transport is included for one exact known firmware/receiver combination. It still needs physical Waze validation. Other configurations retain the existing AMap output.</p>
     <p class="feature-note">Experimental cluster map support is also included. It uses the separate Small / Full screen navi modes; physical map rendering still needs validation.</p>
   </section>
 
@@ -89,7 +91,7 @@
     </div>
     <div class="install-steps">
       <article><span class="step">1</span><div><h3>Check the Waze already installed</h3><p>This build uses <code>com.waze</code>. An in-place update needs the same signing certificate and a compatible version. It cannot update official Waze or another author’s modification signed with a different key.</p><p><strong>Do not uninstall Waze or clear its data just to bypass an error.</strong> Uninstalling erases local app data.</p></div></article>
-      <article><span class="step">2</span><div><h3>Download the complete APK</h3><p>Get the APK directly from the GitHub release. Expected size: <strong>131,779,389 bytes</strong>. A checksum file is included with the download.</p><details class="checksum"><summary>Verify the SHA-256 checksum</summary><code>2bf380c722ded8ca6227c2cbd479b5e78314ce46a4ef7e250dfc11119cc6df56</code><a href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.3/Waze-for-BYD-5.22.90.123-test.3.apk.sha256">Download checksum file ↗</a></details></div></article>
+      <article><span class="step">2</span><div><h3>Download the complete APK</h3><p>Get the APK directly from the GitHub release. Expected size: <strong>131,812,157 bytes</strong>. A checksum file is included with the download.</p><details class="checksum"><summary>Verify the SHA-256 checksum</summary><code>16731b21441c5798ed55830a6c914cd6c00ca555fb5c0f28e5e84a3de43895ff</code><a href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.4/Waze-for-BYD-5.22.90.123-test.4.apk.sha256">Download checksum file ↗</a></details></div></article>
       <article><span class="step">3</span><div><h3>Try it while parked</h3><p>Start a route in Waze for BYD on the DiLink unit. Select <strong>Turn on by navi</strong> using the steering-wheel menu to check the stock card, then cancel the route and check that it clears.</p><p>The app does not change the cluster mode. Other navigation applications can overwrite the same guidance card.</p></div></article>
     </div>
     <div class="help-box"><div><h3>“Package appears to be invalid”?</h3><p>Some users have reported installation failures. The dialog alone does not tell us why. Check the downloaded file, Android version and existing Waze; share the exact ADB error when available.</p></div><a class="text-link" href="https://github.com/romanchukg-cloud/waze-for-byd/blob/main/docs/installation.md">Installation guide <span aria-hidden="true">↗</span></a></div>
@@ -108,7 +110,7 @@
 
   <section class="download-section wrap" aria-labelledby="download-title">
     <div><p class="eyebrow">GET THE TEST BUILD</p><h2 id="download-title">Take the next turn<br>with us.</h2><p>Read the requirements, try it while parked,<br>and help us understand what works on your BYD.</p></div>
-    <div class="download-final"><a class="button primary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.3/Waze-for-BYD-5.22.90.123-test.3.apk">Download APK <span aria-hidden="true">↓</span></a><span>test.3 · 131.8 MB · Experimental</span><a href="https://github.com/romanchukg-cloud/waze-for-byd/issues/new?title=Installation%20or%20guidance%20report&amp;body=BYD%20model%20and%20year%3A%0AAndroid%20and%20DiLink%20version%3A%0AWaze%20for%20BYD%20release%3A%0AExisting%20Waze%20version%20and%20source%3A%0AWhat%20happened%3A%0AExact%20installation%20error%20if%20available%3A%0A">Share a test report ↗</a></div>
+    <div class="download-final"><a class="button primary" href="https://github.com/romanchukg-cloud/waze-for-byd/releases/download/v5.22.90.123-byd.test.4/Waze-for-BYD-5.22.90.123-test.4.apk">Download APK <span aria-hidden="true">↓</span></a><span>test.4 · 131.8 MB · Experimental</span><a href="https://github.com/romanchukg-cloud/waze-for-byd/issues/new?title=Installation%20or%20guidance%20report&amp;body=BYD%20model%20and%20year%3A%0AAndroid%20and%20DiLink%20version%3A%0AWaze%20for%20BYD%20release%3A%0AExisting%20Waze%20version%20and%20source%3A%0AWhat%20happened%3A%0AExact%20installation%20error%20if%20available%3A%0A">Share a test report ↗</a></div>
   </section>
   </main>
   <footer class="footer wrap"><span>Waze for BYD <small>Independent. Experimental. Community-built.</small></span><div><a href="https://github.com/romanchukg-cloud/waze-for-byd">Source code ↗</a><a href="https://github.com/romanchukg-cloud/waze-for-byd/releases">All releases ↗</a></div></footer>

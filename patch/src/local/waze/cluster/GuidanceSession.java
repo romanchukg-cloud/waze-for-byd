@@ -12,6 +12,7 @@ public final class GuidanceSession {
         boolean wasShown();
         boolean setShown(boolean shown);
     }
+    private final long keepaliveMs;
     private final Output output;
     private final Store store;
     private boolean shown;
@@ -19,6 +20,11 @@ public final class GuidanceSession {
     private long updatedAt, sentAt;
 
     public GuidanceSession(Output output, Store store) {
+        this(output,store,KEEPALIVE_MS);
+    }
+    public GuidanceSession(Output output, Store store, long keepaliveMs) {
+        if(keepaliveMs<250 || keepaliveMs>60000)throw new IllegalArgumentException("Invalid keepalive");
+        this.keepaliveMs=keepaliveMs;
         this.output = output;
         this.store = store;
         shown = store.wasShown();
@@ -32,7 +38,7 @@ public final class GuidanceSession {
     public void tick(long now) {
         if (latest != null && now - updatedAt >= STALE_MS) latest = null;
         if (latest == null) { end(); return; }
-        if (!latest.equals(sent) || now - sentAt >= KEEPALIVE_MS) {
+        if (!latest.equals(sent) || now - sentAt >= keepaliveMs) {
             // Persist before sending, so even a process death between the two
             // operations leaves enough information for startup recovery.
             if (!shown) {

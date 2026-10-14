@@ -11,6 +11,7 @@ import android.os.*;
 import android.util.Log;
 import android.view.*;
 import androidx.car.app.*;
+import local.waze.diagnostics.Diagnostics;
 import androidx.car.app.navigation.INavigationHost;
 import androidx.car.app.navigation.model.NavigationTemplate;
 import androidx.car.app.navigation.model.Trip;
@@ -45,6 +46,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     public static synchronized void install(Application app) {
         try {
             if (instance != null || !app.getPackageName().equals(Application.getProcessName())) return;
+            Diagnostics.install(app);
             instance = new ClusterHost(app);
             instance.main.postDelayed(instance.retry, 3000);
         } catch (Throwable e) { Log.e(TAG, "install", e); }
@@ -64,9 +66,10 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                     if (host.stateReader == null) host.stateReader = new WazeClusterState();
                     GuidanceFrame frame = host.stateReader.frame(state, host.app, System.currentTimeMillis());
                     host.lastStateAt = receivedAt;
+                    Diagnostics.event("navigation_source", "mode", frame == null ? "UNKNOWN" : "GUIDING", "providers", 1, "age_ms", 0);
                     host.guidance.update(frame);
                     Log.i(TAG, "cluster state guidance " + (frame == null ? "inactive/loading" : "available"));
-                } catch (Throwable e) { host.guidance.end(); Log.e(TAG, "cluster state observer", e); }
+                } catch (Throwable e) { host.guidance.end(); Diagnostics.failure("source", "schema_mismatch"); Log.e(TAG, "cluster state observer", e); }
             });
         } catch (Throwable e) { Log.e(TAG, "cluster state dispatch", e); }
     }
@@ -74,16 +77,16 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         this.app = app;
         guidance = new BydGuidanceBridge(app, main);
         BroadcastReceiver shutdown = new BroadcastReceiver() {
-            public void onReceive(Context context, Intent intent) { close(); }
+            public void onReceive(Context context, Intent intent) { Diagnostics.event("lifecycle", "state", "stopped"); close(); }
         };
         if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(shutdown, new IntentFilter(Intent.ACTION_SHUTDOWN), Context.RECEIVER_NOT_EXPORTED);
         else app.registerReceiver(shutdown, new IntentFilter(Intent.ACTION_SHUTDOWN));
         displays = (DisplayManager) app.getSystemService(Context.DISPLAY_SERVICE);
         displays.registerDisplayListener(this, main);
-        Log.i(TAG, "installed test.3; stock BYD guidance bridge enabled");
+        Log.i(TAG, "installed test.4; stock BYD guidance bridge enabled");
     }
     private void safely(String stage, Work work) {
-        try { work.run(); } catch (Throwable e) { Log.e(TAG, stage, e); }
+        try { work.run(); } catch (Throwable e) { Diagnostics.failure(stage.startsWith("surface") || stage.startsWith("area") ? "projection" : "adapter", "internal_error"); Log.e(TAG, stage, e); }
     }
     private IOnDoneCallback done(String stage, Result next) {
         final int expected = generation;
@@ -102,6 +105,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             }
             public void onFailure(Bundleable value) {
                 main.post(() -> { if (expected == generation) {
+                    Diagnostics.failure(stage.startsWith("surface") || stage.startsWith("area") ? "projection" : "adapter", "internal_error");
                     safely(stage, () -> Log.e(TAG, stage + " failed: " + (value == null ? "null" : value.get())));
                     if ("template".equals(stage)) templatePending = false;
                     else if (!stage.startsWith("surface") && !stage.startsWith("area")) resetAndRetry();
@@ -146,6 +150,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             Log.i(TAG, "display " + selected.getDisplayId() + " " + selected.getName());
             sendSurface();
         } catch (Throwable e) {
+            Diagnostics.failure("projection", e instanceof SecurityException ? "permission_denied" : "internal_error");
             Log.e(TAG, "show map; guidance session remains connected", e);
             dismissMap();
             main.postDelayed(retry, 10000);
@@ -219,12 +224,14 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                 Rect area = new Rect(Math.round(w*.35f), Math.round(h*.16f), Math.round(w*.64f), Math.round(h*.75f));
                 receiver.onVisibleAreaChanged(area, done("area.visible", null));
                 receiver.onStableAreaChanged(area, done("area.stable", null));
+                Diagnostics.event("projection", "state", "created", "display_id", presentation.getDisplay().getDisplayId(), "width", w, "height", h);
                 Log.i(TAG, "surface " + w + "x" + h + " safe " + area);
             }));
         });
     }
     private void destroySurface() {
         SurfaceContainer old = delivered;
+        if (old != null && presentation != null) Diagnostics.event("projection", "state", "closed", "display_id", presentation.getDisplay().getDisplayId(), "width", old.getWidth(), "height", old.getHeight());
         delivered = null;
         if (callback != null && old != null) safely("surface.destroy", () -> callback.onSurfaceDestroyed(Bundleable.create(old), done("surface.destroyed", null)));
     }
