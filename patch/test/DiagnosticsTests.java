@@ -102,7 +102,7 @@ public final class DiagnosticsTests extends Instrumentation {
         f.reply=new ReportTransport.Reply(409,"",0);due(e,third,now+6000);check(third.getString("state").equals("stopped")&&third.getString("key").equals(conflictKey),"conflict stops without re-key");
         e.cancel(third.getString("key"),now+7000);f.reply=new ReportTransport.Reply(202,reply("queued"),0);due(e,third,now+8000);
         f.reply=new ReportTransport.Reply(409,"",0);due(e,third,now+9000);check(third.getString("state").equals("delivering")&&!third.getBoolean("cancel"),"cancel/delivery race");
-        
+
         f.reply=new ReportTransport.Reply(200,reply("delivery_uncertain"),0);due(e,third,now+10000);
         check(ReportEngine.active(third)&&third.getLong("next")>=now+610000,"uncertain delivery polls same receipt slowly");
         int uncertainCalls=f.methods.size();e.cancel(third.getString("key"),now+11000);
