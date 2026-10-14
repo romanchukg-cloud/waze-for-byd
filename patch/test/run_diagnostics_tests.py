@@ -24,6 +24,8 @@ manifest.write_text('''<manifest xmlns:android="http://schemas.android.com/apk/r
 <instrumentation android:name="local.waze.diagnostics.DiagnosticsTests" android:targetPackage="local.waze.diagnostics.tests"/>
 </manifest>''')
 sources=sorted((root/'src/local/waze/diagnostics').glob('*.java'))
+# The Support screen shows local cluster status; these classes need no Car App library.
+sources += [root/'src/local/waze/cluster'/(n+'.java') for n in ('ClusterStatus','ClusterSettings','DiLink51Layout','ClusterActivityMonitor','ClusterActivityState','StandaloneHudGate')]
 sources += [root/'test/DiagnosticsTests.java',root/'test/DiagnosticsTestApplication.java',root/'test/DiagnosticsExportProvider.java']
 run('javac','-source','8','-target','8','-Xlint:-options','-cp',android,'-d',out/'classes',*sources)
 run(bt/'d8','--min-api','29','--lib',android,'--output',out/'dex',*sorted((out/'classes').rglob('*.class')))

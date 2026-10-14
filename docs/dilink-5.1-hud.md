@@ -59,6 +59,13 @@ A separate pending-clear marker is committed before start; next startup recovers
 it with end. Crash/force-stop cannot clear immediately. Start is sent once before
 the session's first guidance. Only one navigation app should write to the HUD.
 
+## Support status (test.5)
+
+Settings → Support shows each gate check locally: verified firmware, receiver
+version, system/enabled/exported state, permission and signer. A tester on another
+firmware can share a screenshot without ADB. The status is never uploaded.
+HUD packets and lifecycle are unchanged from test.4.
+
 ## Evidence and remaining validation
 
 The supplied report attributes physical arrows, distance and street-name validation

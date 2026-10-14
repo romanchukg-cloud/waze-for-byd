@@ -9,19 +9,23 @@ import android.widget.*;
 import org.json.*;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import local.waze.cluster.ClusterStatus;
+import local.waze.cluster.ClusterSettings;
+import local.waze.cluster.DiLink51Layout;
 
 /** Framework-only English support screen; exports only validated report bodies through SAF. */
 public final class SupportActivity extends Activity {
     private Diagnostics d;
     private LinearLayout layout, reports;
     private CheckBox automatic;
-    private TextView status;
+    private TextView status,clusterStatus;
     private Spinner category,cluster,hud,stock;
     private String exportBody;
     private boolean busy,updating,resumed;
     private long captureUntil;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable refresh=new Runnable(){public void run(){if(resumed){load();handler.postDelayed(this,5000);}}};
+    private final Runnable clusterRefresh=new Runnable(){public void run(){if(resumed){clusterStatus.setText(ClusterStatus.describe(SupportActivity.this));handler.postDelayed(this,1000);}}};
     public void onCreate(Bundle saved) {
         setTheme(android.R.style.Theme_Material_Light_NoActionBar);super.onCreate(saved);
         d=Diagnostics.get(this);
@@ -30,6 +34,7 @@ public final class SupportActivity extends Activity {
         int pad=(int)(16*getResources().getDisplayMetrics().density);layout.setPadding(pad,pad,pad,pad);scroll.addView(layout);setContentView(scroll);
         text("Support · Waze for BYD",24);
         text("Build "+ReportSchema.BUILD+" · Support and diagnostics\nTechnical reports go to diagnostics.localcharge.app. A limited summary may appear in public GitHub Issues for romanchukg-cloud/waze-for-byd. Queued does not mean sent, and a successful guidance call does not prove anything appeared on the HUD.",16);
+        clusterSection();
         automatic=new CheckBox(this);automatic.setText("Automatically send diagnostics");layout.addView(automatic);
         text("After Continue, measured integration failures can be sent automatically when server support is verified, at most one new report per 24 hours. Successful sessions are not uploaded. Turning this off stops automatic retries, removes unsent automatic reports and requests cancellation of known queued reports. Published, delivering or unconfirmed accepted reports may not be recalled. Manual reports stay independent.",16);
         automatic.setOnCheckedChangeListener((v,on) -> {if(!updating && d!=null){d.choiceChanged(on);d.execute(() -> {d.store.saveChoice(on,false);d.schedule();},this::load,() -> message("Could not save diagnostics choice."));}});
@@ -46,13 +51,35 @@ public final class SupportActivity extends Activity {
         button("Back",this::finish);
         if(d==null)message("Diagnostics storage is unavailable.");
     }
+    private void clusterSection(){
+        text("Cluster map layout",20);
+        choice("Layout profile",new String[]{"Automatic: DiLink 5.1 layout only on verified firmware","DiLink 5.1 layout, also on unverified firmware","DiLink 5 layout"},
+            ClusterSettings.PROFILE,DiLink51Layout.Profile.values(),ClusterSettings.profile(this));
+        choice("DiLink 5.1 cluster theme",new String[]{"Scenario: right side card","Map: full width","Simple: right side card","Follow the cluster automatically (Usage Access)"},
+            ClusterSettings.MODE,DiLink51Layout.Mode.values(),ClusterSettings.mode(this));
+        choice("Map theme background",new String[]{"Theme default","Light background, dark instruments","Dark background, light instruments"},
+            ClusterSettings.CONTRAST,DiLink51Layout.Contrast.values(),ClusterSettings.contrast(this));
+        text("Choose the theme your cluster shows. Following the cluster needs Usage Access, granted once from a computer:\nadb shell appops set com.waze GET_USAGE_STATS allow\nReplace allow with default to revoke it. The status below stays on this device and is never uploaded.",14);
+        clusterStatus=text("Loading cluster status…",14);clusterStatus.setTextIsSelectable(true);
+    }
+    private <T extends Enum<T>> void choice(String label,String[] options,String key,T[] values,T current){
+        Spinner s=select(label,options);s.setSelection(current.ordinal(),false);
+        final Enum<?>[] saved={current};
+        s.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onItemSelected(AdapterView<?> parent,View v,int position,long id){
+                if(position<0||position>=values.length||values[position]==saved[0])return;
+                saved[0]=values[position];ClusterSettings.save(SupportActivity.this,key,values[position]);
+            }
+            public void onNothingSelected(AdapterView<?> parent){}
+        });
+    }
     private TextView text(String s,int size){TextView v=new TextView(this);v.setText(s);v.setTextSize(size);v.setPadding(0,8,0,8);layout.addView(v);return v;}
     private void button(String label,Runnable action){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setOnClickListener(v -> action.run());layout.addView(b,new LinearLayout.LayoutParams(-1,-2));}
     private Spinner select(String label,String[] options){text(label,16);Spinner s=new Spinner(this);s.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options));layout.addView(s);return s;}
     private String value(Spinner s){return ((String)s.getSelectedItem()).toLowerCase(java.util.Locale.ROOT);}
     private void message(String s){if(!isFinishing()&&!isDestroyed())Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
-    protected void onResume(){super.onResume();resumed=true;refresh.run();}
-    protected void onPause(){resumed=false;handler.removeCallbacks(refresh);super.onPause();}
+    protected void onResume(){super.onResume();resumed=true;refresh.run();clusterRefresh.run();}
+    protected void onPause(){resumed=false;handler.removeCallbacks(refresh);handler.removeCallbacks(clusterRefresh);super.onPause();}
     protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("export",exportBody);b.putLong("capture_until",captureUntil);}
     void showAutomaticChoice(boolean selected){updating=true;automatic.setChecked(selected);updating=false;}
     private void load(){

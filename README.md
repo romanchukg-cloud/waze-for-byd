@@ -20,8 +20,8 @@ APK download, compatibility requirements, test status and installation help.
 ## Download
 
 Get the APK and SHA-256 checksum from the
-[test.4 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.4).
-See the [release notes](docs/releases/v5.22.90.123-byd.test.4.md) for validation
+[test.5 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.5).
+See the [release notes](docs/releases/v5.22.90.123-byd.test.5.md) for validation
 results, update requirements and known limitations.
 
 **Before installing:** Android 10+ and an ARM64/ARMv7 device are required.
@@ -85,8 +85,8 @@ python3 patch/test/run_tests.py
 python3 patch/test/run_tests.py --android-serial emulator-5580
 ```
 
-The JVM tests cover conversion, keepalive, expiry, ownership persistence and
-failed-send recovery. Android tests also verify the exact intent keys and extra
+The JVM tests cover conversion, keepalive, expiry, ownership persistence,
+failed-send recovery, the DiLink 5.1 HUD packets and the 5.1 cluster layout/state. Android tests also verify the exact intent keys and extra
 types. Neither test sends a broadcast or starts navigation.
 
 Parked vehicle testing confirmed state-observer callbacks, broadcast output and
@@ -96,6 +96,16 @@ field rendering and long-running stability remain unverified. Waze route-dialog
 AppCompat theme errors were also recorded and need separate reproduction.
 
 ## Build
+
+### test.5 additions
+
+This release adds a [DiLink 5.1 cluster map layout](docs/dilink-5.1-cluster-map.md):
+the full-width `_0` layer for the Map theme, or the right side card on `_1` for the
+Scenario and Simple themes. Waze renders at the measured viewport size. A fixed theme
+or **Follow the cluster** (Usage Access, granted once over ADB) is chosen in Support.
+The layout is automatic only on verified 5.1 firmware; testers with another 5.1 build
+can choose it in Support. DiLink 5 behaviour is unchanged. Support also shows a local
+cluster/HUD status. Physical DiLink 5.1 validation is pending.
 
 ### test.4 additions
 
@@ -131,12 +141,13 @@ For a distinct key password, set `WAZE_KEY_PASSWORD` as well. The script refuses
 to create a new signing key. The input APK must have SHA-256
 `a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80`.
 
-Output: `patch/Waze-for-BYD-5.22.90.123-test.4.apk` and its SHA-256 file.
+Output: `patch/Waze-for-BYD-5.22.90.123-test.5.apk` and its SHA-256 file.
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
 original payload entries except `classes5.dex`, `classes6.dex`,
 `AndroidManifest.xml`, and obsolete signature entries. Manifest changes are the
-application label, two diagnostics components and one package-visibility query
-for the gated HUD receiver. It adds the host as
+application label, two diagnostics components, one package-visibility query
+for the gated HUD receiver and a `PACKAGE_USAGE_STATS` declaration for the
+optional cluster-theme follower. It adds the host as
 `classes11.dex`. DEX 5 contains one read-only state observer call; DEX 6 contains
 the startup hook. Smali overlays leave the original decoded cache intact.
 Resources and native libraries remain unchanged.
@@ -165,8 +176,13 @@ when testing. Diagnostic tag: `WazeClusterTest`.
 - `patch/manifest_support.py`: append diagnostics components and HUD package visibility.
 - `patch/src/local/waze/diagnostics/`: private structured recording, consent UI, queue, manual v1 and capability-gated automatic v2 client.
 - `patch/src/local/waze/cluster/StandaloneHud*.java`: gated DiLink 5.1 packets and lifecycle.
+- `patch/src/local/waze/cluster/DiLink51Layout.java`, `ClusterActivityState.java`,
+  `ClusterActivityMonitor.java`, `ClusterSettings.java`, `ClusterStatus.java`:
+  DiLink 5.1 cluster geometry, Usage Access theme follower, owner choices and local status.
 - `patch/Assemble.java`: assemble the modified DEX with apktool's smali tools.
-- `patch/test/VirtualCluster.java`: emulator display helper, not part of the APK.
+- `patch/test/VirtualCluster.java`, `patch/test/ClusterCapture.java`: emulator display
+  helpers, not part of the APK. ClusterCapture recreates the three 1920x720 layers and
+  saves their frames as PNG for layout checks.
 
 The initial source was imported from the existing local cluster experiment.
 Development continues in `patch/`; historical folders remain local and intact.

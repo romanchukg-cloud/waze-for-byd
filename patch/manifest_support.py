@@ -1,7 +1,8 @@
-"""Append two internal diagnostics components to the pinned binary manifest.
+"""Append internal diagnostics components and the cluster declarations to the pinned binary manifest.
 
 Preserve existing XML nodes, string indexes, resources and Waze components.
 No resource rebuild is needed: the support UI uses Android framework widgets.
+PACKAGE_USAGE_STATS is only declared; the owner grants Usage Access explicitly.
 """
 import struct
 
@@ -84,6 +85,11 @@ def add_support_components(data):
         before_manifest_end=next(i for i,c in enumerate(chunks)
                                  if u16(c,0)==0x103 and strings[u32(c,20)]=='manifest')
         chunks.insert(before_manifest_end,begin+query_child+end)
+    # Optional Usage Access for following the DiLink 5.1 cluster theme. Never granted by install.
+    usage = node('uses-permission', [attr(name, append('android.permission.PACKAGE_USAGE_STATS'))])
+    application_start = next(i for i, c in enumerate(chunks)
+                             if u16(c, 0) == 0x102 and u32(c, 20) < len(strings) and strings[u32(c, 20)] == 'application')
+    chunks.insert(application_start, usage)
     insertions = 0
     for i, chunk in enumerate(chunks):
         if u16(chunk, 0) == 0x103 and u32(chunk,20)<len(strings) and strings[u32(chunk, 20)] == 'application':
