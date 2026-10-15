@@ -7,7 +7,7 @@ Android 13 emulator with display layers that match the vehicle's.
 
 ## When it is used
 
-**Settings → Support · Waze for BYD → Cluster map layout → Layout profile**:
+**Instrument cluster** (button on the Waze map) **→ DiLink 5.1 cluster layout → Layout profile** (in Support until test.6):
 
 - **Automatic** (default): DiLink 5.1 layout only on a verified firmware build.
   Every other car keeps the existing DiLink 5 layout without change.
@@ -53,8 +53,8 @@ layers, at 320 dpi:
 
 ## Theme selection
 
-**DiLink 5.1 cluster theme** offers a fixed Scenario, Map or Simple theme (default:
-Scenario), or **Follow the cluster automatically**.
+**Cluster theme** in the same panel offers a fixed Scenario, Map or Simple theme (default:
+Scenario), or **Follow**.
 
 Follow mode reads stock cluster activity events through Android Usage Access. It
 polls every 500 ms, with a 2-second overlap and deduplication.

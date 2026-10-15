@@ -49,9 +49,9 @@ public final class ClusterPanel {
         button.setElevation(dp(activity, 6));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, dp(activity, 44), Gravity.TOP | Gravity.RIGHT);
         int inset = root.getRootWindowInsets() == null ? dp(activity, 48) : root.getRootWindowInsets().getStableInsetTop();
-        // Below Waze's own round buttons in the top-right corner.
-        lp.topMargin = Math.max(inset, dp(activity, 48)) + dp(activity, 40);
-        lp.rightMargin = dp(activity, 16);
+        // Top row, left of Waze's round music and sound buttons (56 dp each, 8 dp apart, measured on the car).
+        lp.topMargin = inset + dp(activity, 6);
+        lp.rightMargin = dp(activity, 128);
         button.setOnClickListener(v -> show(activity));
         root.addView(button, lp);
     }
@@ -145,13 +145,9 @@ public final class ClusterPanel {
             panel.addView(label(c, "First turn off HUD output in OpenBYD or any other HUD app. Restart Waze to apply.", 14));
             panel.addView(apply);
         }
-        final int[] themes = {ClusterSettings.THEME_AUTO, ClusterSettings.THEME_SYSTEM, ClusterSettings.THEME_LIGHT, ClusterSettings.THEME_DARK};
-        int theme = 0;
-        for (int i = 0; i < themes.length; i++) if (themes[i] == s.clusterTheme) theme = i;
-        options(panel, c, "Cluster map colours", new String[]{"Auto", "Match screen", "Light", "Dark"}, theme,
-                i -> preferences.edit().putInt(ClusterSettings.CLUSTER_THEME, themes[i]).apply());
-        panel.addView(label(c, "Auto (default) is light between sunrise and sunset at the car's position. Match screen follows the head unit's theme where it reports one. "
-                + "The centre screen keeps Waze's own colour setting. " + ClusterStatus.theme(), 14));
+        // Waze draws the cluster with its shared map colours; it has no separate cluster style to choose live.
+        panel.addView(label(c, "Cluster map colours follow Waze: its map colour setting, Apply for car display and the head unit theme. "
+                + ClusterStatus.theme(), 14));
         slider(panel, c, "Pointer vertical offset (- up, + down)", ClusterSettings.POINTER_VERTICAL, -25, 25, s.pointerVertical);
         // Android 13 BYD builds (DiLink 5.1); also kept visible once the owner has chosen a profile.
         if (Build.VERSION.SDK_INT >= 33 || s.profile != DiLink51Layout.Profile.AUTOMATIC) {

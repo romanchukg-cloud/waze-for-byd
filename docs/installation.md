@@ -25,13 +25,13 @@ Waze's private data across a signing-key change.
 
 ## Verify the downloaded APK
 
-Download `Waze-for-BYD-5.22.90.123-test.5.apk` directly from the
-[test.5 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.5).
+Download `Waze-for-BYD-5.22.90.123-test.6.apk` directly from the
+[test.6 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.6).
 
-Expected file size: **131,824,445 bytes**.
+Expected file size: **131,832,637 bytes**.
 
 Expected SHA-256:
-`e4586fdae35aabd0fc2efb76876a36ef16ddb563c35cc11fc65b735bb7f17f35`
+`21d28621cea457dc9bcd4345cb61fd84a8f8fb5c2e1d0518697f8725b7b13f7e`
 
 The adjacent `.sha256` attachment contains the same checksum. If the downloaded
 file has a different size or hash, download it again before attempting to install.
@@ -63,7 +63,7 @@ there is a signing conflict. Report:
 To attempt a normal in-place installation and obtain the precise result:
 
 ```sh
-adb install --no-incremental --no-streaming -r Waze-for-BYD-5.22.90.123-test.5.apk
+adb install --no-incremental --no-streaming -r Waze-for-BYD-5.22.90.123-test.6.apk
 ```
 
 This command attempts an install/update. It does not uninstall the existing

@@ -33,18 +33,15 @@ if hook not in s:
 application_overlay = root / 'smali-overrides/classes6/com/waze/mobile/WazeMobileApplication.smali'
 application_overlay.parent.mkdir(parents=True, exist_ok=True)
 application_overlay.write_text(s)
-# Waze hard-codes a dark cluster map; take the mode from the owner's cluster colours setting instead.
+# Waze hard-codes a dark cluster map. Use its Automatic mode, so the cluster follows Waze's own colours
+# (Apply for car display) and the car theme like the centre screen.
 map_source = root / 'decoded/smali_classes6/com/waze/car_lib/d/t.smali'
 cluster_map = map_source.read_text()
 map_marker = '    sget-object v12, Lcom/waze/map/b/be;->b:Lcom/waze/map/b/be;'
 assert cluster_map.count(map_marker) == 1, 'Pinned cluster map mode location not found'
 map_overlay = root / 'smali-overrides/classes6/com/waze/car_lib/d/t.smali'
 map_overlay.parent.mkdir(parents=True, exist_ok=True)
-map_overlay.write_text(cluster_map.replace(map_marker,
-    # v6: cluster map controller (t.f); v15: its view settings (bw); v11: its content (dk). bc.i receives all three.
-    '    invoke-static {v6, v15, v11}, Llocal/waze/cluster/ClusterHost;->clusterMapMode(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;\n\n'
-    '    move-result-object v12\n\n'
-    '    check-cast v12, Lcom/waze/map/b/be;'))
+map_overlay.write_text(cluster_map.replace(map_marker, '    sget-object v12, Lcom/waze/map/b/be;->a:Lcom/waze/map/b/be;'))
 state_source = root / 'decoded/smali_classes5/com/waze/car_lib/d/r.smali'
 state = state_source.read_text()
 state_hook = '    invoke-static {p0}, Llocal/waze/cluster/ClusterHost;->onClusterState(Ljava/lang/Object;)V'

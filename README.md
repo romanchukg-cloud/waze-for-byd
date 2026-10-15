@@ -20,8 +20,8 @@ APK download, compatibility requirements, test status and installation help.
 ## Download
 
 Get the APK and SHA-256 checksum from the
-[test.5 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.5).
-See the [release notes](docs/releases/v5.22.90.123-byd.test.5.md) for validation
+[test.6 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.6).
+See the [release notes](docs/releases/v5.22.90.123-byd.test.6.md) for validation
 results, update requirements and known limitations.
 
 **Before installing:** Android 10+ and an ARM64/ARMv7 device are required.
@@ -97,6 +97,21 @@ AppCompat theme errors were also recorded and need separate reproduction.
 
 ## Build
 
+### test.6 additions
+
+An **Instrument cluster** button on the Waze map opens a settings panel like Google
+Maps for BYD. It covers:
+
+- cluster map on/off;
+- turn guidance on/off;
+- the HUD transport status, with an opt-in for untested DiLink 5.1 builds;
+- the pointer offset;
+- the DiLink 5.1 layout.
+
+Waze hard-codes a dark cluster map. A pinned smali change in `car_lib/d/t` uses Waze's
+Automatic mode instead, so the cluster follows Waze's colours and the head-unit theme.
+See [Instrument cluster settings](docs/instrument-cluster.md).
+
 ### test.5 additions
 
 This release adds a [DiLink 5.1 cluster map layout](docs/dilink-5.1-cluster-map.md):
@@ -141,7 +156,7 @@ For a distinct key password, set `WAZE_KEY_PASSWORD` as well. The script refuses
 to create a new signing key. The input APK must have SHA-256
 `a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80`.
 
-Output: `patch/Waze-for-BYD-5.22.90.123-test.5.apk` and its SHA-256 file.
+Output: `patch/Waze-for-BYD-5.22.90.123-test.6.apk` and its SHA-256 file.
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
 original payload entries except `classes5.dex`, `classes6.dex`,
 `AndroidManifest.xml`, and obsolete signature entries. Manifest changes are the
@@ -149,7 +164,7 @@ application label, two diagnostics components, one package-visibility query
 for the gated HUD receiver and a `PACKAGE_USAGE_STATS` declaration for the
 optional cluster-theme follower. It adds the host as
 `classes11.dex`. DEX 5 contains one read-only state observer call; DEX 6 contains
-the startup hook. Smali overlays leave the original decoded cache intact.
+the startup hook and the cluster map mode hook. Smali overlays leave the original decoded cache intact.
 Resources and native libraries remain unchanged.
 
 ## Updates and device checks

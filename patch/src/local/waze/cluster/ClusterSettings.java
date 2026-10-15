@@ -7,16 +7,14 @@ import android.content.SharedPreferences;
 public final class ClusterSettings {
     static final String PREFS = "local_cluster_settings", LEGACY_PREFS = "waze_for_byd_cluster";
     public static final String MAP_ENABLED = "map_enabled", VEHICLE_GUIDANCE = "vehicle_guidance",
-            HUD_UNTESTED = "hud_untested_firmware", CLUSTER_THEME = "cluster_theme", POINTER_VERTICAL = "pointer_vertical",
+            HUD_UNTESTED = "hud_untested_firmware", POINTER_VERTICAL = "pointer_vertical",
             PROFILE = "dilink51_profile", MODE = "dilink51_theme", CONTRAST = "dilink51_background";
-    // Same values as Google Maps for BYD.
-    public static final int THEME_DARK = 0, THEME_LIGHT = 1, THEME_SYSTEM = 2, THEME_AUTO = 3;
     private static boolean migrated;
     private ClusterSettings() { }
 
     public static final class State {
         public final boolean mapEnabled, vehicleGuidance, hudUntested;
-        public final int clusterTheme, pointerVertical;
+        public final int pointerVertical;
         public final DiLink51Layout.Profile profile;
         public final DiLink51Layout.Mode mode;
         public final DiLink51Layout.Contrast contrast;
@@ -24,8 +22,6 @@ public final class ClusterSettings {
             mapEnabled = p.getBoolean(MAP_ENABLED, true);
             vehicleGuidance = p.getBoolean(VEHICLE_GUIDANCE, true);
             hudUntested = p.getBoolean(HUD_UNTESTED, false);
-            int theme = p.getInt(CLUSTER_THEME, THEME_AUTO);
-            clusterTheme = theme == THEME_LIGHT || theme == THEME_SYSTEM || theme == THEME_AUTO ? theme : THEME_DARK;
             // Waze places its car marker from the visible area; 0 keeps the layout verified in test.5.
             pointerVertical = Math.max(-25, Math.min(25, p.getInt(POINTER_VERTICAL, 0)));
             profile = read(p, PROFILE, DiLink51Layout.Profile.values(), DiLink51Layout.Profile.AUTOMATIC);

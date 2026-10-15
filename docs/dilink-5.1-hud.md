@@ -66,6 +66,12 @@ version, system/enabled/exported state, permission and signer. A tester on anoth
 firmware can share a screenshot without ADB. The status is never uploaded.
 HUD packets and lifecycle are unchanged from test.4.
 
+From test.6, the Instrument cluster panel shows the HUD transport. On another Android 13
+BYD build (`BYD-AUTO/IVI/IVI:13/`) whose receiver passes every other check, the owner can
+opt in with **Try standalone HUD on this firmware (experimental)**. It is off by default
+and applies after a restart, because some builds already drive the HUD through SOME/IP
+(for example OpenBYD). After an opt-out, one end packet clears a journalled HUD session.
+
 ## Evidence and remaining validation
 
 The supplied report attributes physical arrows, distance and street-name validation
