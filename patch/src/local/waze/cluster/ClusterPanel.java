@@ -151,7 +151,7 @@ public final class ClusterPanel {
         options(panel, c, "Cluster map colours", new String[]{"Auto", "Match screen", "Light", "Dark"}, theme,
                 i -> preferences.edit().putInt(ClusterSettings.CLUSTER_THEME, themes[i]).apply());
         panel.addView(label(c, "Auto (default) is light between sunrise and sunset at the car's position. Match screen follows the head unit's theme where it reports one. "
-                + "While the cluster session runs, Waze may use the same colours on the centre screen. " + ClusterStatus.theme(), 14));
+                + "The centre screen keeps Waze's own colour setting. " + ClusterStatus.theme(), 14));
         slider(panel, c, "Pointer vertical offset (- up, + down)", ClusterSettings.POINTER_VERTICAL, -25, 25, s.pointerVertical);
         // Android 13 BYD builds (DiLink 5.1); also kept visible once the owner has chosen a profile.
         if (Build.VERSION.SDK_INT >= 33 || s.profile != DiLink51Layout.Profile.AUTOMATIC) {

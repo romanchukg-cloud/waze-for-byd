@@ -6,9 +6,9 @@ import android.os.Build;
 /** Local Support status for the cluster map and HUD; never part of diagnostics reports. */
 public final class ClusterStatus {
     static volatile String map = "cluster host is not running", surface = "none", displays = "", cluster,
-            theme = "Cluster map: not shown yet.", hud = "HUD transport: checking receiver.";
+            theme = "Cluster map: not shown yet.", hud = "HUD transport: checking receiver.", wazeCarTheme = "";
     static volatile boolean untestedHudAvailable, standaloneActive;
-    public static String theme() { return theme; }
+    public static String theme() { return theme + (wazeCarTheme.isEmpty() ? "" : " " + wazeCarTheme); }
     public static String hud() { return hud; }
     public static boolean untestedHudAvailable() { return untestedHudAvailable; }
     public static boolean standaloneActive() { return standaloneActive; }
@@ -25,7 +25,7 @@ public final class ClusterStatus {
         String stock = cluster;
         if (stock != null) s.append("\nStock cluster: ").append(stock);
         s.append("\nMap on cluster: ").append(settings.mapEnabled ? "on" : "off").append(", guidance: ").append(settings.vehicleGuidance ? "on" : "off")
-                .append("\n").append(theme)
+                .append("\n").append(theme())
                 .append("\nMap: ").append(map).append("\nWaze surface: ").append(surface)
                 .append("\nDisplays: ").append(displays.isEmpty() ? "unknown" : displays);
         return s.append("\n").append(hud).append("\n").append(StandaloneHudGate.describe(context)).toString();

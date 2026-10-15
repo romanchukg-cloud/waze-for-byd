@@ -53,9 +53,11 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private String themeState = "";
     private Location themeLocation;
     private long themeLocationAt;
+    private boolean carThemeError;
+    private String carThemeSeen = "";
     private final Runnable themePoll = new Runnable() {
         // BYD can change the centre-screen theme without a configuration callback, so poll while connected.
-        public void run() { applyTheme("poll"); main.postDelayed(this, 2000); }
+        public void run() { useCarTheme(); applyTheme("poll"); reportCarTheme(); main.postDelayed(this, 2000); }
     };
     private final Runnable refresh = () -> requestTemplate();
     private final Runnable retry = () -> reconcile();
@@ -176,6 +178,33 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         Configuration config = new Configuration(app.getResources().getConfiguration());
         config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | night;
         return config;
+    }
+    /**
+     * While this Waze flag is on, its car map follows the mobile colour setting and ignores the car's theme,
+     * so the cluster colours setting had no effect. Keep it off (names pinned to Waze 5.22.90.123).
+     */
+    private void useCarTheme() {
+        try {
+            Object flag = Class.forName("com.waze.config.ConfigValues").getField("CONFIG_VALUE_ANDROID_AUTO_USE_MOBILE_THEME_MODE_ON_CAR").get(null);
+            if (Boolean.TRUE.equals(flag.getClass().getMethod("a").invoke(flag))) {
+                flag.getClass().getMethod("c", Boolean.class).invoke(flag, Boolean.FALSE);
+                Log.i(TAG, "Waze car map set to follow the cluster colours");
+            }
+        } catch (Throwable e) {
+            if (!carThemeError) { carThemeError = true; Log.w(TAG, "Waze car theme flag unavailable", e); }
+        }
+    }
+    /** Reads the colours Waze actually uses for its car map, for the local status only. */
+    private void reportCarTheme() {
+        String seen;
+        try {
+            java.lang.reflect.Field field = Class.forName("com.waze.nightmode.u").getDeclaredField("g");
+            field.setAccessible(true);
+            Object value = Class.forName("kotlinx.coroutines.b.bi").getMethod("d").invoke(field.get(null));
+            seen = value == null ? "not set yet" : Boolean.TRUE.equals(value) ? "dark" : "light";
+        } catch (Throwable e) { seen = "unknown"; }
+        ClusterStatus.wazeCarTheme = "Waze car map colours: " + seen + ".";
+        if (!seen.equals(carThemeSeen)) { carThemeSeen = seen; Log.i(TAG, "Waze car map colours " + seen); }
     }
     private void applyTheme(String source) {
         if (!ready || car == null) { clusterNight(); return; }
@@ -426,6 +455,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         if (!app.bindService(sessionIntent, connection, Context.BIND_AUTO_CREATE)) throw new IllegalStateException("bindService returned false");
     }
     private void create() throws Exception {
+        useCarTheme();
         appliedNight = clusterNight();
         Configuration config = sessionConfig(appliedNight);
         Log.i(TAG, "cluster session theme " + (appliedNight == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (create)");
