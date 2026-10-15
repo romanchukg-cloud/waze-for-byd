@@ -57,7 +57,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private String carThemeSeen = "";
     private final Runnable themePoll = new Runnable() {
         // BYD can change the centre-screen theme without a configuration callback, so poll while connected.
-        public void run() { useCarTheme(); applyTheme("poll"); reportCarTheme(); main.postDelayed(this, 2000); }
+        public void run() { keepMobileTheme(); applyTheme("poll"); reportCarTheme(); main.postDelayed(this, 2000); }
     };
     private final Runnable refresh = () -> requestTemplate();
     private final Runnable retry = () -> reconcile();
@@ -108,6 +108,32 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
         Log.i(TAG, "installed test.6; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+    }
+    /** Night bits Waze's cluster map was created with; -1 before the map exists. */
+    private volatile int mapNight = -1;
+    /**
+     * Called by Waze's cluster map setup (smali overlay in car_lib/d/t) instead of its hard-coded Dark mode.
+     * Returns com.waze.map.b.be: ordinal 1 is Dark and 2 is Light (Waze's map/fg forces night/day for them).
+     */
+    public static Object clusterMapMode() {
+        boolean dark = true;
+        try {
+            ClusterHost host = instance;
+            if (host != null) {
+                int night = host.clusterNight();
+                host.mapNight = night;
+                dark = night != Configuration.UI_MODE_NIGHT_NO;
+            }
+        } catch (Throwable e) { Log.e(TAG, "cluster map colours", e); }
+        try {
+            Object[] modes = Class.forName("com.waze.map.b.be").getEnumConstants();
+            Log.i(TAG, "cluster map created " + (dark ? "dark" : "light"));
+            ClusterStatus.wazeCarTheme = "Waze cluster map: " + (dark ? "dark" : "light") + ".";
+            return modes[dark ? 1 : 2];
+        } catch (Throwable e) {
+            Log.e(TAG, "cluster map mode unavailable", e);
+            return null;
+        }
     }
     private void settingsChanged(String key) {
         if (ClusterSettings.POINTER_VERTICAL.equals(key)) { refreshArea(); return; }
@@ -180,21 +206,21 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         return config;
     }
     /**
-     * While this Waze flag is on, its car map follows the mobile colour setting and ignores the car's theme,
-     * so the cluster colours setting had no effect. Keep it off (names pinned to Waze 5.22.90.123).
+     * With this Waze flag off, Waze's shared night flag follows the cluster session and recolours the
+     * centre-screen map too. An earlier test.6 build turned it off; keep Waze's mobile behaviour instead.
      */
-    private void useCarTheme() {
+    private void keepMobileTheme() {
         try {
             Object flag = Class.forName("com.waze.config.ConfigValues").getField("CONFIG_VALUE_ANDROID_AUTO_USE_MOBILE_THEME_MODE_ON_CAR").get(null);
-            if (Boolean.TRUE.equals(flag.getClass().getMethod("a").invoke(flag))) {
-                flag.getClass().getMethod("c", Boolean.class).invoke(flag, Boolean.FALSE);
-                Log.i(TAG, "Waze car map set to follow the cluster colours");
+            if (Boolean.FALSE.equals(flag.getClass().getMethod("a").invoke(flag))) {
+                flag.getClass().getMethod("c", Boolean.class).invoke(flag, Boolean.TRUE);
+                Log.i(TAG, "Waze centre-screen map keeps its own colours");
             }
         } catch (Throwable e) {
             if (!carThemeError) { carThemeError = true; Log.w(TAG, "Waze car theme flag unavailable", e); }
         }
     }
-    /** Reads the colours Waze actually uses for its car map, for the local status only. */
+    /** Reads Waze's shared map night flag (the centre screen), for the local status only. */
     private void reportCarTheme() {
         String seen;
         try {
@@ -203,8 +229,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             Object value = Class.forName("kotlinx.coroutines.b.bi").getMethod("d").invoke(field.get(null));
             seen = value == null ? "not set yet" : Boolean.TRUE.equals(value) ? "dark" : "light";
         } catch (Throwable e) { seen = "unknown"; }
-        ClusterStatus.wazeCarTheme = "Waze car map colours: " + seen + ".";
-        if (!seen.equals(carThemeSeen)) { carThemeSeen = seen; Log.i(TAG, "Waze car map colours " + seen); }
+        ClusterStatus.wazeMainTheme = "Waze centre map: " + seen + ".";
+        if (!seen.equals(carThemeSeen)) { carThemeSeen = seen; Log.i(TAG, "Waze centre map colours " + seen); }
     }
     private void applyTheme(String source) {
         if (!ready || car == null) { clusterNight(); return; }
@@ -214,6 +240,14 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         final Configuration config = sessionConfig(night);
         Log.i(TAG, "cluster session theme " + (night == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (" + source + ")");
         safely("theme", () -> car.onConfigurationChanged(config, done("theme", null)));
+        // Waze reads the cluster map mode only when it creates the map, so recreate the session.
+        if (mapNight >= 0 && mapNight != night) {
+            Log.i(TAG, "cluster map colours changed (" + source + "); reconnecting the cluster session");
+            mapNight = -1;
+            close(false);
+            main.removeCallbacks(retry);
+            main.postDelayed(retry, 500);
+        }
     }
     private Rect area(int width, int height, DiLink51Layout.Plan areaPlan) {
         int[] a = ClusterTheme.visibleArea(width, height, areaPlan, ClusterSettings.state(app).pointerVertical);
@@ -455,7 +489,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         if (!app.bindService(sessionIntent, connection, Context.BIND_AUTO_CREATE)) throw new IllegalStateException("bindService returned false");
     }
     private void create() throws Exception {
-        useCarTheme();
+        keepMobileTheme();
         appliedNight = clusterNight();
         Configuration config = sessionConfig(appliedNight);
         Log.i(TAG, "cluster session theme " + (appliedNight == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (create)");
@@ -519,8 +553,10 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         ClusterStatus.surface = "none";
         if (callback != null && old != null) safely("surface.destroy", () -> callback.onSurfaceDestroyed(Bundleable.create(old), done("surface.destroyed", null)));
     }
-    private void close() {
-        guidance.end();
+    private void close() { close(true); }
+    /** A colours reconnect keeps the car's guidance card; the bridge outlives the session. */
+    private void close(boolean endGuidance) {
+        if (endGuidance) guidance.end();
         destroySurface();
         if (car != null && ready) {
             safely("pause", () -> car.onAppPause(done("pause", null)));

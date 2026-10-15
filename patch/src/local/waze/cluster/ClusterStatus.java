@@ -6,9 +6,11 @@ import android.os.Build;
 /** Local Support status for the cluster map and HUD; never part of diagnostics reports. */
 public final class ClusterStatus {
     static volatile String map = "cluster host is not running", surface = "none", displays = "", cluster,
-            theme = "Cluster map: not shown yet.", hud = "HUD transport: checking receiver.", wazeCarTheme = "";
+            theme = "Cluster map: not shown yet.", hud = "HUD transport: checking receiver.", wazeCarTheme = "", wazeMainTheme = "";
     static volatile boolean untestedHudAvailable, standaloneActive;
-    public static String theme() { return theme + (wazeCarTheme.isEmpty() ? "" : " " + wazeCarTheme); }
+    public static String theme() {
+        return theme + (wazeCarTheme.isEmpty() ? "" : " " + wazeCarTheme) + (wazeMainTheme.isEmpty() ? "" : " " + wazeMainTheme);
+    }
     public static String hud() { return hud; }
     public static boolean untestedHudAvailable() { return untestedHudAvailable; }
     public static boolean standaloneActive() { return standaloneActive; }
