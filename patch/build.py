@@ -41,7 +41,8 @@ assert cluster_map.count(map_marker) == 1, 'Pinned cluster map mode location not
 map_overlay = root / 'smali-overrides/classes6/com/waze/car_lib/d/t.smali'
 map_overlay.parent.mkdir(parents=True, exist_ok=True)
 map_overlay.write_text(cluster_map.replace(map_marker,
-    '    invoke-static {}, Llocal/waze/cluster/ClusterHost;->clusterMapMode()Ljava/lang/Object;\n\n'
+    # v6: cluster map controller (t.f); v15: its view settings (bw); v11: its content (dk). bc.i receives all three.
+    '    invoke-static {v6, v15, v11}, Llocal/waze/cluster/ClusterHost;->clusterMapMode(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;\n\n'
     '    move-result-object v12\n\n'
     '    check-cast v12, Lcom/waze/map/b/be;'))
 state_source = root / 'decoded/smali_classes5/com/waze/car_lib/d/r.smali'
