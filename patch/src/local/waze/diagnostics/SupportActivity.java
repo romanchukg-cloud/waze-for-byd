@@ -10,8 +10,6 @@ import org.json.*;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import local.waze.cluster.ClusterStatus;
-import local.waze.cluster.ClusterSettings;
-import local.waze.cluster.DiLink51Layout;
 
 /** Framework-only English support screen; exports only validated report bodies through SAF. */
 public final class SupportActivity extends Activity {
@@ -52,26 +50,9 @@ public final class SupportActivity extends Activity {
         if(d==null)message("Diagnostics storage is unavailable.");
     }
     private void clusterSection(){
-        text("Cluster map layout",20);
-        choice("Layout profile",new String[]{"Automatic: DiLink 5.1 layout only on verified firmware","DiLink 5.1 layout, also on unverified firmware","DiLink 5 layout"},
-            ClusterSettings.PROFILE,DiLink51Layout.Profile.values(),ClusterSettings.profile(this));
-        choice("DiLink 5.1 cluster theme",new String[]{"Scenario: right side card","Map: full width","Simple: right side card","Follow the cluster automatically (Usage Access)"},
-            ClusterSettings.MODE,DiLink51Layout.Mode.values(),ClusterSettings.mode(this));
-        choice("Map theme background",new String[]{"Theme default","Light background, dark instruments","Dark background, light instruments"},
-            ClusterSettings.CONTRAST,DiLink51Layout.Contrast.values(),ClusterSettings.contrast(this));
-        text("Choose the theme your cluster shows. Following the cluster needs Usage Access, granted once from a computer:\nadb shell appops set com.waze GET_USAGE_STATS allow\nReplace allow with default to revoke it. The status below stays on this device and is never uploaded.",14);
+        text("Instrument cluster",20);
+        text("Cluster settings are in Instrument cluster, at the top right of the Waze map. The status below stays on this device and is never uploaded.",14);
         clusterStatus=text("Loading cluster status…",14);clusterStatus.setTextIsSelectable(true);
-    }
-    private <T extends Enum<T>> void choice(String label,String[] options,String key,T[] values,T current){
-        Spinner s=select(label,options);s.setSelection(current.ordinal(),false);
-        final Enum<?>[] saved={current};
-        s.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
-            public void onItemSelected(AdapterView<?> parent,View v,int position,long id){
-                if(position<0||position>=values.length||values[position]==saved[0])return;
-                saved[0]=values[position];ClusterSettings.save(SupportActivity.this,key,values[position]);
-            }
-            public void onNothingSelected(AdapterView<?> parent){}
-        });
     }
     private TextView text(String s,int size){TextView v=new TextView(this);v.setText(s);v.setTextSize(size);v.setPadding(0,8,0,8);layout.addView(v);return v;}
     private void button(String label,Runnable action){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setOnClickListener(v -> action.run());layout.addView(b,new LinearLayout.LayoutParams(-1,-2));}

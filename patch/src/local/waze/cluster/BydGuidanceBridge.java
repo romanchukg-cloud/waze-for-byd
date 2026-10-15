@@ -12,19 +12,39 @@ import local.waze.diagnostics.Diagnostics;
 public final class BydGuidanceBridge {
     private static final String TAG = "WazeBydGuidance";
     private final Handler main;
+    private final Context context;
     private GuidanceFrame lastSent;
     private final boolean standalone;
     private final GuidanceSession session;
     private final Runnable tick = new Runnable() {
         public void run() {
-            safely(() -> session.tick(SystemClock.elapsedRealtime()));
+            // Turning guidance off in the cluster settings ends an owned card within one tick.
+            safely(() -> { if (enabled()) session.tick(SystemClock.elapsedRealtime()); else session.end(); });
             main.postDelayed(this, standalone ? 250 : 1000);
         }
     };
     public BydGuidanceBridge(Context context, Handler main) {
         this.main = main;
-        standalone = StandaloneHudGate.eligible(context);
+        this.context = context;
+        String rejection = StandaloneHudGate.rejection(context);
+        boolean untested = StandaloneHudGate.UNTESTED.equals(rejection);
+        // Another 5.1 build may already drive its HUD through SOME/IP (for example OpenBYD): opt-in only, read at start.
+        standalone = rejection == null || untested && ClusterSettings.state(context).hudUntested;
+        ClusterStatus.untestedHudAvailable = untested;
+        ClusterStatus.standaloneActive = standalone;
+        ClusterStatus.hud = rejection == null ? "HUD transport: standalone receiver verified."
+                : standalone ? "HUD transport: standalone receiver (experimental: this firmware build is untested)."
+                : untested ? "HUD transport: AMap. A standalone HUD receiver passed all checks, but this firmware build is untested. You can try it below."
+                : "HUD transport: AMap. Standalone unavailable (" + rejection + ").";
         SharedPreferences prefs = context.getSharedPreferences("waze_for_byd_guidance", Context.MODE_PRIVATE);
+        if (!standalone && untested && prefs.getBoolean("standalone_hud_pending_clear", false)) {
+            // The owner turned the experimental output off: clear what a killed process left on the HUD.
+            safely(() -> {
+                context.sendBroadcast(StandaloneHudGate.intent(StandaloneHudPackets.END));
+                if (!prefs.edit().putBoolean("standalone_hud_pending_clear", false).commit()) throw new IllegalStateException("Cannot clear HUD journal");
+                Log.i(TAG, "standalone HUD recovery clear sent");
+            });
+        }
         final StandaloneHudOutput hud = new StandaloneHudOutput(packet -> context.sendBroadcast(StandaloneHudGate.intent(packet)));
         final String marker = standalone ? "standalone_hud_pending_clear" : "guidance_shown";
         session = new GuidanceSession(new GuidanceSession.Output() {
@@ -37,7 +57,7 @@ public final class BydGuidanceBridge {
                 catch (RuntimeException e) { record(frame, "failed", reason); throw e; }
                 record(frame, "sent", reason);
                 lastSent = frame;
-                Log.i(TAG, "guidance broadcast sent; icon=" + frame.icon + " turnMeters=" + frame.turnMeters);
+                Log.i(TAG, "guidance broadcast sent; icon=" + frame.icon + " type=" + frame.maneuverType + " turnMeters=" + frame.turnMeters);
             }
             public void end() {
                 try { if(standalone) hud.end(); else context.sendBroadcast(endIntent()); }
@@ -50,11 +70,13 @@ public final class BydGuidanceBridge {
             public boolean wasShown() { return prefs.getBoolean(marker, false); }
             public boolean setShown(boolean shown) { return prefs.edit().putBoolean(marker, shown).commit(); }
         }, standalone ? 1000 : GuidanceSession.KEEPALIVE_MS);
-        Log.i(TAG, standalone ? "Using gated DiLink 5.1 standalone HUD transport" : "Using DiLink 5 AMap transport");
+        Log.i(TAG, (standalone ? "Using gated DiLink 5.1 standalone HUD transport" : "Using DiLink 5 AMap transport") + " (" + (rejection == null ? "verified" : rejection) + ")");
         safely(() -> session.end()); // Recover a card left behind by process death.
         main.postDelayed(tick, standalone ? 250 : 1000);
     }
+    private boolean enabled() { return ClusterSettings.state(context).vehicleGuidance; }
     public void update(GuidanceFrame frame) {
+        if (!enabled()) { safely(() -> session.end()); return; }
         GuidanceFrame accepted = standalone && frame != null && StandaloneHudPackets.guidance(frame) == null ? null : frame;
         safely(() -> session.update(accepted, SystemClock.elapsedRealtime()));
     }

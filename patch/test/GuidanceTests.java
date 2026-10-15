@@ -64,7 +64,8 @@ public final class GuidanceTests {
     }
     private static void conversion() {
         check(WazeGuidance.icon(TYPE_UNKNOWN) == 0 && WazeGuidance.icon(999) == 0, "Unknown must not become straight");
-        check(WazeGuidance.icon(TYPE_DEPART) == 0 && WazeGuidance.icon(TYPE_MERGE_SIDE_UNSPECIFIED) == 0, "Unspecified direction stays unknown");
+        check(WazeGuidance.icon(TYPE_MERGE_SIDE_UNSPECIFIED) == 0, "Unspecified direction stays unknown");
+        check(WazeGuidance.icon(TYPE_DEPART) == 9, "Route start shows straight ahead, not BYD's finish flag");
         check(WazeGuidance.icon(TYPE_STRAIGHT) == 9, "Straight icon");
         check(WazeGuidance.icon(TYPE_TURN_NORMAL_LEFT) == 2 && WazeGuidance.icon(TYPE_TURN_NORMAL_RIGHT) == 3, "Left/right icons");
         check(WazeGuidance.icon(TYPE_TURN_SLIGHT_LEFT) == 4 && WazeGuidance.icon(TYPE_TURN_SLIGHT_RIGHT) == 5, "Slight turn icons");

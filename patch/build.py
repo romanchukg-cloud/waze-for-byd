@@ -62,7 +62,7 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
         dst.writestr(item, data)
     dst.write(root / 'helper-dex/classes.dex', 'classes11.dex', compress_type=zipfile.ZIP_DEFLATED)
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
-output = 'Waze-for-BYD-5.22.90.123-test.5.apk'
+output = 'Waze-for-BYD-5.22.90.123-test.6.apk'
 run(bt / 'apksigner', 'sign', '--ks', key, '--ks-key-alias', alias, '--ks-pass', 'env:WAZE_KEYSTORE_PASSWORD', '--key-pass', 'env:WAZE_KEY_PASSWORD', '--out', output, 'aligned.apk')
 run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)

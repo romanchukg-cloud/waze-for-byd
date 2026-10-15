@@ -40,7 +40,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private WazeClusterState stateReader;
     private SurfaceContainer delivered;
     // DiLink 5.1 layout: owner settings, optional Usage Access monitor and the shown plan.
-    private final SharedPreferences.OnSharedPreferenceChangeListener clusterChanged = (prefs, key) -> { updateMonitor(); reconcile(); };
+    private final SharedPreferences.OnSharedPreferenceChangeListener clusterChanged = (prefs, key) -> settingsChanged(key);
     private ClusterActivityMonitor monitor;
     private ClusterActivityState.Snapshot cluster;
     private boolean usageAccess;
@@ -48,6 +48,15 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private String layout;
     private final java.util.List<Presentation> cleared = new java.util.ArrayList<>();
     private final java.util.Set<Integer> flushed = new java.util.HashSet<>();
+    // Cluster map colours: the night bits last given to Waze's car session.
+    private int appliedNight = -1;
+    private String themeState = "";
+    private Location themeLocation;
+    private long themeLocationAt;
+    private final Runnable themePoll = new Runnable() {
+        // BYD can change the centre-screen theme without a configuration callback, so poll while connected.
+        public void run() { applyTheme("poll"); main.postDelayed(this, 2000); }
+    };
     private final Runnable refresh = () -> requestTemplate();
     private final Runnable retry = () -> reconcile();
     private interface Result { void accept(Bundleable value) throws Exception; }
@@ -57,6 +66,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         try {
             if (instance != null || !app.getPackageName().equals(Application.getProcessName())) return;
             Diagnostics.install(app);
+            try { ClusterPanel.install(app); } catch (Throwable e) { Log.e(TAG, "cluster settings panel", e); }
             instance = new ClusterHost(app);
             instance.main.postDelayed(instance.retry, 3000);
         } catch (Throwable e) { Log.e(TAG, "install", e); }
@@ -95,7 +105,101 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         displays.registerDisplayListener(this, main);
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
-        Log.i(TAG, "installed test.5; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+        Log.i(TAG, "installed test.6; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+    }
+    private void settingsChanged(String key) {
+        if (ClusterSettings.POINTER_VERTICAL.equals(key)) { refreshArea(); return; }
+        if (ClusterSettings.CLUSTER_THEME.equals(key)) { applyTheme("setting"); return; }
+        // The guidance bridge reads its own settings; the HUD opt-in applies after a restart.
+        if (ClusterSettings.VEHICLE_GUIDANCE.equals(key) || ClusterSettings.HUD_UNTESTED.equals(key)) return;
+        updateMonitor();
+        reconcile();
+    }
+    private int clusterNight() {
+        int theme = ClusterSettings.state(app).clusterTheme;
+        String reason;
+        int night;
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        int minute = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 + now.get(java.util.Calendar.MINUTE);
+        if (theme == ClusterSettings.THEME_LIGHT) { reason = "forced light"; night = Configuration.UI_MODE_NIGHT_NO; }
+        else if (theme == ClusterSettings.THEME_DARK) { reason = "forced dark"; night = Configuration.UI_MODE_NIGHT_YES; }
+        else if (theme == ClusterSettings.THEME_AUTO) {
+            Location where = themeLocation();
+            boolean dark = ClusterTheme.night(ClusterTheme.MODE_AUTO, System.currentTimeMillis(), minute, 0, 0,
+                    where == null ? null : where.getLatitude(), where == null ? null : where.getLongitude());
+            reason = where == null ? "no position yet: night 18:00-06:00" : dark ? "after sunset" : "after sunrise";
+            night = dark ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO;
+        } else {
+            try {
+                UiModeManager manager = (UiModeManager) app.getSystemService(Context.UI_MODE_SERVICE);
+                int mode = manager.getNightMode();
+                if (mode < ClusterTheme.MODE_AUTO || mode > ClusterTheme.MODE_CUSTOM) return keepTheme("head unit theme unknown");
+                int start = 0, end = 0;
+                if (mode == ClusterTheme.MODE_CUSTOM && Build.VERSION.SDK_INT >= 31) {
+                    start = manager.getCustomNightModeStart().getHour() * 60 + manager.getCustomNightModeStart().getMinute();
+                    end = manager.getCustomNightModeEnd().getHour() * 60 + manager.getCustomNightModeEnd().getMinute();
+                }
+                Location where = mode == ClusterTheme.MODE_AUTO ? themeLocation() : null;
+                boolean dark = ClusterTheme.night(mode, System.currentTimeMillis(), minute, start, end,
+                        where == null ? null : where.getLatitude(), where == null ? null : where.getLongitude());
+                reason = "head unit " + (mode == ClusterTheme.MODE_NO ? "light" : mode == ClusterTheme.MODE_YES ? "dark"
+                        : mode == ClusterTheme.MODE_CUSTOM ? "scheduled" : "automatic");
+                night = dark ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO;
+            } catch (Exception e) { return keepTheme("head unit theme unavailable"); }
+        }
+        String state = "theme=" + theme + " night=" + (night == Configuration.UI_MODE_NIGHT_YES) + " " + reason;
+        if (!state.equals(themeState)) { themeState = state; Log.i(TAG, "cluster colours " + state); }
+        ClusterStatus.theme = "Cluster map now: " + (night == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (" + reason + ").";
+        return night;
+    }
+    private int keepTheme(String reason) {
+        int night = appliedNight > 0 ? appliedNight : Configuration.UI_MODE_NIGHT_YES;
+        ClusterStatus.theme = "Cluster map now: " + (night == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (" + reason + ").";
+        return night;
+    }
+    /** Last known position for sunrise/sunset only; kept in memory, never logged or uploaded. */
+    private Location themeLocation() {
+        long now = SystemClock.elapsedRealtime();
+        if (themeLocation != null && now - themeLocationAt < 600000) return themeLocation;
+        try {
+            android.location.LocationManager manager = (android.location.LocationManager) app.getSystemService(Context.LOCATION_SERVICE);
+            Location best = null;
+            for (String provider : manager.getProviders(true)) {
+                Location candidate = manager.getLastKnownLocation(provider);
+                if (candidate != null && (best == null || candidate.getTime() > best.getTime())) best = candidate;
+            }
+            if (best != null) { themeLocation = best; themeLocationAt = now; }
+        } catch (RuntimeException e) { /* Without a position the fixed 18:00-06:00 schedule applies. */ }
+        return themeLocation;
+    }
+    private Configuration sessionConfig(int night) {
+        Configuration config = new Configuration(app.getResources().getConfiguration());
+        config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | night;
+        return config;
+    }
+    private void applyTheme(String source) {
+        if (!ready || car == null) { clusterNight(); return; }
+        int night = clusterNight();
+        if (night == appliedNight) return;
+        appliedNight = night;
+        final Configuration config = sessionConfig(night);
+        Log.i(TAG, "cluster session theme " + (night == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (" + source + ")");
+        safely("theme", () -> car.onConfigurationChanged(config, done("theme", null)));
+    }
+    private Rect area(int width, int height, DiLink51Layout.Plan areaPlan) {
+        int[] a = ClusterTheme.visibleArea(width, height, areaPlan, ClusterSettings.state(app).pointerVertical);
+        return new Rect(a[0], a[1], a[2], a[3]);
+    }
+    private void refreshArea() {
+        final ISurfaceCallback receiver = callback;
+        if (receiver == null || delivered == null || view == null) return;
+        final Rect next = area(view.getWidth(), view.getHeight(), plan);
+        safely("area.refresh", () -> {
+            receiver.onVisibleAreaChanged(next, done("area.visible", null));
+            receiver.onStableAreaChanged(next, done("area.stable", null));
+        });
+        ClusterStatus.surface = view.getWidth() + "x" + view.getHeight() + ", visible area " + next.toShortString();
+        Log.i(TAG, "visible area " + next + " (pointer offset)");
     }
     private boolean layout51() { return DiLink51Layout.active(ClusterSettings.profile(app), Build.FINGERPRINT); }
     private void updateMonitor() {
@@ -125,6 +229,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     private void safely(String stage, Work work) {
         try { work.run(); } catch (Throwable e) { Diagnostics.failure(stage.startsWith("surface") || stage.startsWith("area") ? "projection" : "adapter", "internal_error"); Log.e(TAG, stage, e); }
     }
+    /** Failures here affect only the map surface or colours, never the guidance session. */
+    private static boolean optional(String stage) { return stage.startsWith("surface") || stage.startsWith("area") || stage.startsWith("theme"); }
     private IOnDoneCallback done(String stage, Result next) {
         final int expected = generation;
         return new IOnDoneCallback.Stub() {
@@ -135,7 +241,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                     if (next != null) {
                         try { next.accept(value); } catch (Throwable e) {
                             Log.e(TAG, stage + " continuation", e);
-                            if (!stage.startsWith("surface") && !stage.startsWith("area")) resetAndRetry();
+                            if (!optional(stage)) resetAndRetry();
                         }
                     }
                 }); });
@@ -145,7 +251,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                     Diagnostics.failure(stage.startsWith("surface") || stage.startsWith("area") ? "projection" : "adapter", "internal_error");
                     safely(stage, () -> Log.e(TAG, stage + " failed: " + (value == null ? "null" : value.get())));
                     if ("template".equals(stage)) templatePending = false;
-                    else if (!stage.startsWith("surface") && !stage.startsWith("area")) resetAndRetry();
+                    else if (!optional(stage)) resetAndRetry();
                 } });
             }
         };
@@ -157,6 +263,12 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             try { bind(); } catch (Throwable e) { Log.e(TAG, "bind", e); resetAndRetry(); return; }
         }
         logDisplays();
+        if (!ClusterSettings.state(app).mapEnabled) {
+            if (presentation != null) clearMap();
+            if (layout51()) flush51(displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION), null);
+            ClusterStatus.map = "off in Instrument cluster settings";
+            return;
+        }
         if (layout51()) { reconcile51(); return; }
         Display target = null;
         for (Display d : displays.getDisplays()) {
@@ -181,6 +293,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                 }
             };
             presentation.show();
+            releaseCleared(selected.getDisplayId());
             ClusterStatus.map = "display " + selected.getDisplayId() + " " + selected.getName() + ", DiLink 5 layout, full display";
             Log.i(TAG, "display " + selected.getDisplayId() + " " + selected.getName());
             sendSurface();
@@ -278,12 +391,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                 }
             };
             presentation.show();
-            for (java.util.Iterator<Presentation> it = cleared.iterator(); it.hasNext();) {
-                final Presentation old = it.next();
-                if (old.getDisplay().getDisplayId() != target.getDisplayId()) continue;
-                it.remove();
-                main.postDelayed(() -> safely("dismiss", () -> old.dismiss()), 1000); // After the replacement draws.
-            }
+            releaseCleared(target.getDisplayId());
             showing("display " + target.getDisplayId() + " " + target.getName() + ", " + theme.name().toLowerCase(java.util.Locale.ROOT)
                     + (mode == DiLink51Layout.Mode.FOLLOW ? " (following the cluster)" : " (fixed)") + ", " + next
                     + (next.fullMap ? ", " + (dark ? "dark" : "light") + " background" : ""));
@@ -318,10 +426,14 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         if (!app.bindService(sessionIntent, connection, Context.BIND_AUTO_CREATE)) throw new IllegalStateException("bindService returned false");
     }
     private void create() throws Exception {
-        Configuration config = new Configuration(app.getResources().getConfiguration());
+        appliedNight = clusterNight();
+        Configuration config = sessionConfig(appliedNight);
+        Log.i(TAG, "cluster session theme " + (appliedNight == Configuration.UI_MODE_NIGHT_NO ? "light" : "dark") + " (create)");
         car.onAppCreate(new CarHost(), sessionIntent, config, done("create", value ->
             car.onAppStart(done("start", started -> car.onAppResume(done("resume", resumed -> {
                 ready = true;
+                main.removeCallbacks(themePoll);
+                main.postDelayed(themePoll, 2000);
                 sendSurface();
                 car.getManager("app", done("manager", result -> {
                     Object object = result.get();
@@ -361,8 +473,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             receiver.onSurfaceAvailable(Bundleable.create(delivered), done("surface.available", value -> {
                 if (receiver != callback || delivered == null) return;
                 int w = view.getWidth(), h = view.getHeight();
-                Rect area = areaPlan == null ? new Rect(Math.round(w*.35f), Math.round(h*.16f), Math.round(w*.64f), Math.round(h*.75f))
-                        : new Rect(areaPlan.visibleLeft, areaPlan.visibleTop, areaPlan.visibleRight, areaPlan.visibleBottom);
+                Rect area = area(w, h, areaPlan);
                 receiver.onVisibleAreaChanged(area, done("area.visible", null));
                 receiver.onStableAreaChanged(area, done("area.stable", null));
                 Diagnostics.event("projection", "state", "created", "display_id", presentation.getDisplay().getDisplayId(), "width", w, "height", h);
@@ -392,30 +503,48 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         lastStateAt = -GuidanceSession.STALE_MS;
         main.removeCallbacks(refresh);
         main.removeCallbacks(retry);
+        main.removeCallbacks(themePoll);
+        appliedNight = -1;
         if (connection != null) { safely("unbind", () -> app.unbindService(connection)); connection = null; }
         dismissMap();
     }
     private void dismissMap() {
+        // A DiLink 5.1 layer is never emptied; the DiLink 5 layout keeps its test.5 behaviour.
+        if (plan != null) { clearMap(); return; }
+        destroySurface();
+        if (presentation != null) { Presentation old = presentation; presentation = null; safely("dismiss", () -> old.dismiss()); }
+        view = null;
+        plan = null;
+        layout = null;
+    }
+    /**
+     * An emptied virtual display keeps showing a stale buffer. Keep the window as a transparent layer
+     * (black on the DiLink 5 layout) until a replacement is shown on the same display.
+     */
+    private void clearMap() {
         destroySurface();
         if (presentation != null) {
-            Presentation old = presentation;
+            final Presentation old = presentation;
+            final SurfaceView oldView = view;
             presentation = null;
-            if (plan == null) safely("dismiss", () -> old.dismiss());
-            else {
-                // An emptied virtual display keeps showing a stale buffer. Keep this window visible but
-                // transparent until a replacement is shown on the same cluster layer.
-                final SurfaceView oldView = view;
-                safely("clear", () -> {
-                    // SurfaceView keeps its own layer visible unless its own visibility changes.
-                    if (oldView != null) oldView.setVisibility(View.GONE);
-                    old.getWindow().findViewById(android.R.id.content).setVisibility(View.INVISIBLE);
-                });
-                cleared.add(old);
-            }
+            safely("clear", () -> {
+                // SurfaceView keeps its own layer visible unless its own visibility changes.
+                if (oldView != null) oldView.setVisibility(View.GONE);
+                old.getWindow().findViewById(android.R.id.content).setVisibility(View.INVISIBLE);
+            });
+            cleared.add(old);
         }
         view = null;
         plan = null;
         layout = null;
+    }
+    private void releaseCleared(int displayId) {
+        for (java.util.Iterator<Presentation> it = cleared.iterator(); it.hasNext();) {
+            final Presentation old = it.next();
+            if (old.getDisplay().getDisplayId() != displayId) continue;
+            it.remove();
+            main.postDelayed(() -> safely("dismiss", () -> old.dismiss()), 1000); // After the replacement draws.
+        }
     }
     private void resetAndRetry() { close(); main.removeCallbacks(retry); main.postDelayed(retry, 10000); }
     public void onDisplayAdded(int id) { reconcile(); }

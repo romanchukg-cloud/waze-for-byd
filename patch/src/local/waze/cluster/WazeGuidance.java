@@ -29,7 +29,8 @@ public final class WazeGuidance {
         return new GuidanceFrame(maneuver == null ? 0 : icon(maneuver.getType()),
                 maneuver == null ? 0 : maneuver.getRoundaboutExitNumber(), meters(distance),
                 step.getRoad() == null ? "" : step.getRoad().toString(),
-                destination == null ? -1 : meters(destination.getRemainingDistance()), seconds(destination, wallTime));
+                destination == null ? -1 : meters(destination.getRemainingDistance()), seconds(destination, wallTime),
+                maneuver == null ? -1 : maneuver.getType());
     }
     public static int meters(Distance distance) {
         if (distance == null) return -1;
@@ -67,7 +68,8 @@ public final class WazeGuidance {
             case TYPE_TURN_SHARP_RIGHT: case TYPE_ON_RAMP_SHARP_RIGHT: return 7;
             case TYPE_U_TURN_LEFT: case TYPE_ON_RAMP_U_TURN_LEFT: return 8;
             case TYPE_U_TURN_RIGHT: case TYPE_ON_RAMP_U_TURN_RIGHT: return 19;
-            case TYPE_STRAIGHT: return 9;
+            // A route start has no direction. Icon 0 is drawn by BYD as a finish flag, so show straight ahead.
+            case TYPE_STRAIGHT: case TYPE_DEPART: return 9;
             case TYPE_ROUNDABOUT_ENTER_CCW: case TYPE_ROUNDABOUT_ENTER_AND_EXIT_CCW:
             case TYPE_ROUNDABOUT_ENTER_AND_EXIT_CCW_WITH_ANGLE: return 11;
             case TYPE_ROUNDABOUT_EXIT_CCW: return 12;

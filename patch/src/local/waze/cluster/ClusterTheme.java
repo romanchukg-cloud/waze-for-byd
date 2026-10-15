@@ -1,0 +1,62 @@
+package local.waze.cluster;
+
+/**
+ * Day or night for the cluster map, resolved like Google Maps for BYD. BYD switches Android's system
+ * night mode with the centre-screen theme; automatic mode follows civil twilight at the car's position.
+ * Pure logic; positions are only used locally and never logged.
+ */
+public final class ClusterTheme {
+    // UiModeManager.getNightMode() values.
+    public static final int MODE_AUTO = 0, MODE_NO = 1, MODE_YES = 2, MODE_CUSTOM = 3;
+    private static final double DAY_MS = 86400000d, J2000_UTC_MS = 946728000000d;
+    private static final double CIVIL_TWILIGHT = Math.toRadians(-6), OBLIQUITY = Math.toRadians(23.44);
+    private ClusterTheme() { }
+
+    /** @param minuteOfDay local time; customStart/customEnd in minutes (custom mode only); lat/lon null when unknown. */
+    public static boolean night(int mode, long nowUtcMs, int minuteOfDay, int customStart, int customEnd, Double lat, Double lon) {
+        if (mode == MODE_NO) return false;
+        if (mode == MODE_YES) return true;
+        if (mode == MODE_CUSTOM) return inWindow(minuteOfDay, customStart, customEnd);
+        if (lat != null && lon != null) return twilightNight(nowUtcMs, lat, lon);
+        return inWindow(minuteOfDay, 18 * 60, 6 * 60); // No position yet: night 18:00-06:00.
+    }
+
+    static boolean inWindow(int minute, int start, int end) {
+        return start <= end ? minute >= start && minute < end : minute >= start || minute < end;
+    }
+
+    /** Sunrise equation with civil-twilight altitude; polar day/night handled by the hour-angle bounds. */
+    public static boolean twilightNight(long nowUtcMs, double latitude, double longitude) {
+        double days = (nowUtcMs - J2000_UTC_MS) / DAY_MS;
+        double cycle = Math.round(days - 0.0009 + longitude / 360);
+        double approxNoon = cycle + 0.0009 - longitude / 360;
+        double anomaly = Math.toRadians((357.5291 + 0.98560028 * approxNoon) % 360);
+        double center = Math.toRadians(1.9148 * Math.sin(anomaly) + 0.02 * Math.sin(2 * anomaly) + 0.0003 * Math.sin(3 * anomaly));
+        double eclipticLongitude = anomaly + center + Math.toRadians(180 + 102.9372);
+        double noon = approxNoon + 0.0053 * Math.sin(anomaly) - 0.0069 * Math.sin(2 * eclipticLongitude);
+        double declination = Math.asin(Math.sin(eclipticLongitude) * Math.sin(OBLIQUITY));
+        double lat = Math.toRadians(latitude);
+        double cosHour = (Math.sin(CIVIL_TWILIGHT) - Math.sin(lat) * Math.sin(declination)) / (Math.cos(lat) * Math.cos(declination));
+        if (cosHour >= 1) return true;   // Sun stays below the twilight altitude all day.
+        if (cosHour <= -1) return false; // Sun stays above it all day.
+        double halfDay = Math.acos(cosHour) / (2 * Math.PI);
+        double sunrise = J2000_UTC_MS + (noon - halfDay) * DAY_MS, sunset = J2000_UTC_MS + (noon + halfDay) * DAY_MS;
+        return nowUtcMs < sunrise || nowUtcMs >= sunset;
+    }
+
+    /** Waze's visible area for the cluster surface, moved by the owner's pointer offset: {left, top, right, bottom}. */
+    public static int[] visibleArea(int width, int height, DiLink51Layout.Plan plan, int pointerPercent) {
+        int left, top, right, bottom;
+        if (plan == null) { // DiLink 5 layout verified in test.3-test.5.
+            left = Math.round(width * .35f); top = Math.round(height * .16f);
+            right = Math.round(width * .64f); bottom = Math.round(height * .75f);
+        } else {
+            left = plan.visibleLeft; top = plan.visibleTop; right = plan.visibleRight; bottom = plan.visibleBottom;
+        }
+        int shift = Math.round(height * Math.max(-25, Math.min(25, pointerPercent)) / 100f);
+        // Keep the area's height while it fits; never leave the surface.
+        if (shift > 0) shift = Math.min(shift, height - bottom);
+        else shift = Math.max(shift, -top);
+        return new int[]{left, top + shift, right, bottom + shift};
+    }
+}

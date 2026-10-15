@@ -51,6 +51,14 @@ public final class StandaloneHudTests {
         check(streetContent(String.join("",Collections.nCopies(80,"b"))).length()==48,"48-unit cap");
         String fw=StandaloneHudGate.FIRMWARE,cert=StandaloneHudGate.CERT;
         check(StandaloneHudGate.matches(33,fw,10601004,true,true,true,null,cert),"reference gate");
+        String other="BYD-AUTO/IVI/IVI:13/TP1A.220624.014/eng.build20260812.022600:user/release-keys";
+        check(StandaloneHudGate.reject(33,fw,10601004,true,true,true,null,cert)==null,"verified build has no rejection");
+        check(StandaloneHudGate.UNTESTED.equals(StandaloneHudGate.reject(33,other,10601004,true,true,true,null,cert)),"other 5.1 build needs opt-in");
+        check(!StandaloneHudGate.matches(33,other,10601004,true,true,true,null,cert),"untested build is not auto-enabled");
+        check("firmware_not_verified".equals(StandaloneHudGate.reject(33,"BYD-AUTO/DiLink5.0/DiLink5.0:12/x",10601004,true,true,true,null,cert)),"DiLink 5.0 rejected");
+        check("receiver_version".equals(StandaloneHudGate.reject(33,other,10601005,true,true,true,null,cert)),"untested build still checks version");
+        check("receiver_signature".equals(StandaloneHudGate.reject(33,other,10601004,true,true,true,null,"00")),"untested build still checks signer");
+        check("receiver_requires_permission".equals(StandaloneHudGate.reject(33,other,10601004,true,true,true,"x",cert)),"untested build still checks permission");
         check(!StandaloneHudGate.matches(27,fw,10601004,true,true,true,null,cert),"minimum Android");
         check(!StandaloneHudGate.matches(33,"other",10601004,true,true,true,null,cert),"firmware pin");
         check(!StandaloneHudGate.matches(33,fw,10601005,true,true,true,null,cert),"version pin");

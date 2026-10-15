@@ -5,9 +5,15 @@ import java.util.Objects;
 /** Values sent to the stock AMap adapter; all distances are metres. */
 public final class GuidanceFrame {
     public final int icon, roundaboutExit, turnMeters, routeMeters, routeSeconds;
+    /** Waze's AndroidX maneuver type, for local logs only; not part of the sent frame or equality. */
+    public final int maneuverType;
     public final String nextRoad;
 
     public GuidanceFrame(int icon, int exit, int turnMeters, String road, int routeMeters, int routeSeconds) {
+        this(icon, exit, turnMeters, road, routeMeters, routeSeconds, -1);
+    }
+    public GuidanceFrame(int icon, int exit, int turnMeters, String road, int routeMeters, int routeSeconds, int maneuverType) {
+        this.maneuverType = maneuverType;
         this.icon = icon;
         this.roundaboutExit = (icon == 11 || icon == 17) ? Math.max(0, exit) : 0;
         this.turnMeters = Math.max(-1, turnMeters);

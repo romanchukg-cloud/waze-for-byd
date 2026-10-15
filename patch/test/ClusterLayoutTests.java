@@ -75,6 +75,28 @@ public final class ClusterLayoutTests {
         check(follow(state,true)==null,"startup resets");
         check(new ClusterActivityState.Snapshot(Theme.MAP,false).equals(new ClusterActivityState.Snapshot(Theme.MAP,false))
             &&!new ClusterActivityState.Snapshot(Theme.MAP,false).equals(new ClusterActivityState.Snapshot(Theme.MAP,true)),"snapshot equality");
+        // Cluster colours: civil twilight at the car's position, fixed schedule without one.
+        long summerNoonUtc=1782388800000L; // 2026-06-25 12:00 UTC
+        check(!ClusterTheme.twilightNight(summerNoonUtc,50.45,30.52),"Kyiv summer midday is day");
+        check(ClusterTheme.twilightNight(summerNoonUtc-11*3600000L,50.45,30.52),"Kyiv summer 01:00 UTC is night");
+        check(!ClusterTheme.twilightNight(summerNoonUtc-10*3600000L,69.65,18.96),"Tromso midnight sun");
+        check(ClusterTheme.twilightNight(1797076800000L,78.22,15.65),"Svalbard polar night at noon");
+        check(ClusterTheme.night(ClusterTheme.MODE_AUTO,summerNoonUtc,12*60,0,0,null,null)==false,"no position: day at noon");
+        check(ClusterTheme.night(ClusterTheme.MODE_AUTO,summerNoonUtc,19*60,0,0,null,null),"no position: night after 18:00");
+        check(ClusterTheme.night(ClusterTheme.MODE_AUTO,summerNoonUtc,5*60,0,0,null,null),"no position: night before 06:00");
+        check(!ClusterTheme.night(ClusterTheme.MODE_NO,0,0,0,0,null,null)&&ClusterTheme.night(ClusterTheme.MODE_YES,0,12*60,0,0,null,null),"head unit light/dark");
+        check(ClusterTheme.night(ClusterTheme.MODE_CUSTOM,0,23*60,22*60,7*60,null,null)&&!ClusterTheme.night(ClusterTheme.MODE_CUSTOM,0,12*60,22*60,7*60,null,null),"custom window over midnight");
+        // Visible area: the DiLink 5 layout is unchanged at offset 0 and moves within the surface.
+        int[] legacy=ClusterTheme.visibleArea(1920,720,null,0);
+        check(legacy[0]==672&&legacy[1]==115&&legacy[2]==1229&&legacy[3]==540,"test.5 visible area at offset 0");
+        int[] down=ClusterTheme.visibleArea(1920,720,null,10);
+        check(down[1]==187&&down[3]==612,"offset +10 moves 72 px down");
+        int[] limit=ClusterTheme.visibleArea(1920,720,null,25);
+        check(limit[3]==720&&limit[3]-limit[1]==425,"offset keeps height inside the surface");
+        int[] up=ClusterTheme.visibleArea(1920,720,null,-25);
+        check(up[1]==0&&up[3]==425,"negative offset stops at the top");
+        int[] mapUp=ClusterTheme.visibleArea(1920,480,map,-10);
+        check(mapUp[0]==460&&mapUp[1]==16&&mapUp[3]==384,"5.1 map area moves too");
         System.out.println("ClusterLayoutTests: "+count+" checks passed");
     }
 }
