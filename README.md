@@ -199,6 +199,6 @@ Development continues in `patch/`; historical folders remain local and intact.
 
 ## Website
 
-The GitHub Pages site was taken offline on 2026-10-17. Its former source remains in
-`docs/index.html` and `docs/assets/`, but it is not published. Releases and the
-documentation in this repository are the current sources.
+The GitHub Pages site was taken offline and its pages were removed from the
+repository on 2026-10-17. The documentation in this repository is the current
+source of information.
