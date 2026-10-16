@@ -12,18 +12,17 @@ Google or BYD. This repository contains the host source and build tools; the
 original application, decoded application code, APKs and signing keys are local
 inputs and are not included.
 
-## Download
+## Source only
 
-Get the APK and SHA-256 checksum from the
-[test.6 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.6).
-See the [release notes](docs/releases/v5.22.90.123-byd.test.6.md) for validation
-results, update requirements and known limitations.
+Prebuilt APKs are no longer published. This repository provides the patch
+source and the build tools; build an APK yourself from your own copy of the
+pinned Waze input APK (see [Build](#build)). The
+[release notes](docs/releases/v5.22.90.123-byd.test.6.md) describe what each
+test build changed and how it was validated.
 
-**Before installing:** Android 10+ and an ARM64/ARMv7 device are required.
-This APK uses package `com.waze` with our own signing certificate. It cannot
-update official Waze or another modification signed with a different key.
-See [installation requirements and troubleshooting](docs/installation.md),
-including what to report if the installer says the package is invalid.
+**Requirements for a built APK:** Android 10+ and an ARM64/ARMv7 device. It keeps
+package `com.waze`, so it cannot update official Waze or a build signed with a
+different key. See [installation requirements and troubleshooting](docs/installation.md).
 
 Project documentation and release notes are maintained in English. Additional
 languages will be added as needed.

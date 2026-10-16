@@ -23,22 +23,15 @@ key as a troubleshooting step. Uninstalling erases local app data. Diagnose the
 failure first; this project does not provide a migration that preserves official
 Waze's private data across a signing-key change.
 
-## Verify the downloaded APK
+## Prebuilt APKs
 
-Download `Waze-for-BYD-5.22.90.123-test.6.apk` directly from the
-[test.6 release](https://github.com/romanchukg-cloud/waze-for-byd/releases/tag/v5.22.90.123-byd.test.6).
-
-Expected file size: **131,832,637 bytes**.
-
-Expected SHA-256:
-`21d28621cea457dc9bcd4345cb61fd84a8f8fb5c2e1d0518697f8725b7b13f7e`
-
-The adjacent `.sha256` attachment contains the same checksum. If the downloaded
-file has a different size or hash, download it again before attempting to install.
-The published APK has a verified v3 signature and passes ZIP integrity and
-16 KiB ZIP-alignment checks. It installed on the reference DiLink 5 / Android 12
-vehicle and an Android API 35 emulator. This does not prove compatibility with
-every OEM installer or firmware.
+Prebuilt APKs are no longer published; build one from source (see the README).
+For reference, the former test.6 release APK was 131,832,637 bytes with SHA-256
+`21d28621cea457dc9bcd4345cb61fd84a8f8fb5c2e1d0518697f8725b7b13f7e`.
+It had a verified v3 signature and passed ZIP integrity and 16 KiB ZIP-alignment
+checks, and it installed on the reference DiLink 5 / Android 12 vehicle and an
+Android API 35 emulator. This does not prove compatibility with every OEM
+installer or firmware.
 
 Signing-certificate SHA-256:
 `50120cc57caa95d380fdf280e3a9c0853ed09ec8a617fe7bed33893c39b66276`
