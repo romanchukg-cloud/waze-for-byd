@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package local.waze.cluster;
 
 import local.waze.cluster.DiLink51Layout.*;

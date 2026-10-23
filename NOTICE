@@ -1,0 +1,6 @@
+Waze for BYD patches
+Copyright romanchukg-cloud. Licensed under GPL-3.0-only.
+DiLink 5.1 standalone HUD and cluster-layout research informed by shihabal3amri/DiPlay (GPL-3.0); the HUD encoder and layout code were written independently from the documented protocol.
+Parts of the BYD integration may be adapted from romanchukg-cloud/maps-automotive-for-byd-patches (GPL-3.0-only).
+This repository contains only owned patch source code, build tools, tests and documentation. No Waze or Google application code, APKs, decoded application sources, signing keys, tokens or account data are included. The original Waze APK is obtained separately.
+Independent project; not affiliated with Waze, Google or BYD.

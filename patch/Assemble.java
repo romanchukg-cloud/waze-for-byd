@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import java.io.*;import java.nio.file.*;
 import brut.androlib.src.SmaliBuilder;
 import com.android.tools.smali.dexlib2.Opcodes;

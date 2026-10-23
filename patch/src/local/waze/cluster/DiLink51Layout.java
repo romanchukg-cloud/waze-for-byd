@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package local.waze.cluster;
 
 /** DiLink 5.1 cluster geometry as measured by DiPlay's maintainer. Pure logic, no Android types. */

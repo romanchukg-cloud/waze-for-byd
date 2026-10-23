@@ -202,3 +202,10 @@ Development continues in `patch/`; historical folders remain local and intact.
 The GitHub Pages site was taken offline and its pages were removed from the
 repository on 2026-10-17. The documentation in this repository is the current
 source of information.
+
+## License
+
+The patch source code, build tools, tests and documentation in this repository are
+licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`). See
+[LICENSE](LICENSE) and [NOTICE](NOTICE). Waze itself is not part of this repository
+and is not covered by this license.

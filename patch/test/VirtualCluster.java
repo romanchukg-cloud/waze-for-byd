@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 import android.content.Context;
 import android.hardware.display.*;
 import android.graphics.SurfaceTexture;

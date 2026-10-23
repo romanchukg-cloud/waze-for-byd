@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package local.waze.diagnostics;
 public final class DiagnosticsTestApplication extends android.app.Application {
     public void onCreate() {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package local.waze.diagnostics;
 import android.content.*;
 import android.database.Cursor;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package local.waze.cluster;
 
 /** Start once per owned session; GuidanceSession persists ownership before calling this output. */

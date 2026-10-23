@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Test conversion/lifecycle on JVM; optionally test Intent types on Android.
 
 The Android tests construct intents but never send broadcasts or start Waze.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Set an application label in binary Android XML without rebuilding resources.
 
 Only used with the SHA-256-pinned Waze input in build.py. Existing string indexes

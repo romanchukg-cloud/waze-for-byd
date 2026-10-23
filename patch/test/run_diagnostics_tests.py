@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Build an isolated Android test APK, with fake delivery and no INTERNET permission."""
 import argparse, os, pathlib, shutil, subprocess, zipfile
 p=argparse.ArgumentParser(description=__doc__)

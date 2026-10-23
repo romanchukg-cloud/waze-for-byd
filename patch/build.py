@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Build Waze for BYD from the pinned local APK and an existing signing key."""
 import hashlib, os, pathlib, shutil, subprocess, zipfile
 from manifest_label import rename_application

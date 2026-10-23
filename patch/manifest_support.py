@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Append internal diagnostics components and the cluster declarations to the pinned binary manifest.
 
 Preserve existing XML nodes, string indexes, resources and Waze components.
