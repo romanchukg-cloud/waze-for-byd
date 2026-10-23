@@ -7,13 +7,13 @@ import android.content.SharedPreferences;
 public final class ClusterSettings {
     static final String PREFS = "local_cluster_settings", LEGACY_PREFS = "waze_for_byd_cluster";
     public static final String MAP_ENABLED = "map_enabled", VEHICLE_GUIDANCE = "vehicle_guidance",
-            HUD_UNTESTED = "hud_untested_firmware", POINTER_VERTICAL = "pointer_vertical",
+            HUD_UNTESTED = "hud_untested_firmware", POINTER_VERTICAL = "pointer_vertical", PANEL_FULLSCREEN = "panel_fullscreen",
             PROFILE = "dilink51_profile", MODE = "dilink51_theme", CONTRAST = "dilink51_background";
     private static boolean migrated;
     private ClusterSettings() { }
 
     public static final class State {
-        public final boolean mapEnabled, vehicleGuidance, hudUntested;
+        public final boolean mapEnabled, vehicleGuidance, hudUntested, panelFullscreen;
         public final int pointerVertical;
         public final DiLink51Layout.Profile profile;
         public final DiLink51Layout.Mode mode;
@@ -22,6 +22,7 @@ public final class ClusterSettings {
             mapEnabled = p.getBoolean(MAP_ENABLED, true);
             vehicleGuidance = p.getBoolean(VEHICLE_GUIDANCE, true);
             hudUntested = p.getBoolean(HUD_UNTESTED, false);
+            panelFullscreen = p.getBoolean(PANEL_FULLSCREEN, false);
             // Waze places its car marker from the visible area; 0 keeps the layout verified in test.5.
             pointerVertical = Math.max(-25, Math.min(25, p.getInt(POINTER_VERTICAL, 0)));
             profile = read(p, PROFILE, DiLink51Layout.Profile.values(), DiLink51Layout.Profile.AUTOMATIC);
