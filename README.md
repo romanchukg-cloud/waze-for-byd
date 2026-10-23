@@ -150,7 +150,16 @@ For a distinct key password, set `WAZE_KEY_PASSWORD` as well. The script refuses
 to create a new signing key. The input APK must have SHA-256
 `a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80`.
 
-Output: `patch/Waze-for-BYD-5.22.90.123-test.6.apk` and its SHA-256 file.
+Output: `patch/Waze-for-BYD-5.22.90.123-test.6.apk` and its SHA-256 file. The build
+refuses to overwrite an existing output APK; move a kept APK away first, or set
+`WAZE_ALLOW_OVERWRITE=1` deliberately. The same inputs and key produce the same APK
+byte for byte: the helper DEX uses a fixed ZIP date.
+
+Before a car test, verify the bytecode on an Android 13 emulator after installing:
+
+```sh
+adb shell cmd package compile -m verify -f com.waze
+```
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
 original payload entries except `classes5.dex`, `classes6.dex`,
 `AndroidManifest.xml`, and obsolete signature entries. Manifest changes are the

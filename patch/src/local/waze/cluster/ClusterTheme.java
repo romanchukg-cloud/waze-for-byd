@@ -47,6 +47,10 @@ public final class ClusterTheme {
 
     /** Waze's visible area for the cluster surface, moved by the owner's pointer offset: {left, top, right, bottom}. */
     public static int[] visibleArea(int width, int height, DiLink51Layout.Plan plan, int pointerPercent) {
+        return visibleArea(width, height, plan, pointerPercent, 0);
+    }
+    /** Also moves the area horizontally by -25..+25 % of the width (- left, + right), staying inside the surface. */
+    public static int[] visibleArea(int width, int height, DiLink51Layout.Plan plan, int pointerPercent, int horizontalPercent) {
         int left, top, right, bottom;
         if (plan == null) { // DiLink 5 layout verified in test.3-test.5.
             left = Math.round(width * .35f); top = Math.round(height * .16f);
@@ -55,9 +59,12 @@ public final class ClusterTheme {
             left = plan.visibleLeft; top = plan.visibleTop; right = plan.visibleRight; bottom = plan.visibleBottom;
         }
         int shift = Math.round(height * Math.max(-25, Math.min(25, pointerPercent)) / 100f);
-        // Keep the area's height while it fits; never leave the surface.
+        // Keep the area's size while it fits; never leave the surface.
         if (shift > 0) shift = Math.min(shift, height - bottom);
         else shift = Math.max(shift, -top);
-        return new int[]{left, top + shift, right, bottom + shift};
+        int sideways = Math.round(width * Math.max(-25, Math.min(25, horizontalPercent)) / 100f);
+        if (sideways > 0) sideways = Math.min(sideways, width - right);
+        else sideways = Math.max(sideways, -left);
+        return new int[]{left + sideways, top + shift, right + sideways, bottom + shift};
     }
 }

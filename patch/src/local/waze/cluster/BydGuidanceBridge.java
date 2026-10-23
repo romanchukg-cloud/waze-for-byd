@@ -37,6 +37,9 @@ public final class BydGuidanceBridge {
                 : standalone ? "HUD transport: standalone receiver (experimental: this firmware build is untested)."
                 : untested ? "HUD transport: AMap. A standalone HUD receiver passed all checks, but this firmware build is untested. You can try it below."
                 : "HUD transport: AMap. Standalone unavailable (" + rejection + ").";
+        // The AMap adapter is only used when the standalone HUD is not; DiLink 3 names it com.example.amapservice.
+        final String adapter = standalone ? AmapAdapter.BYD : AmapAdapter.packageName(context);
+        if (!standalone) ClusterStatus.hud = ClusterStatus.hud.replace("HUD transport: AMap.", "HUD transport: AMap via " + adapter + ".");
         SharedPreferences prefs = context.getSharedPreferences("waze_for_byd_guidance", Context.MODE_PRIVATE);
         if (!standalone && untested && prefs.getBoolean("standalone_hud_pending_clear", false)) {
             // The owner turned the experimental output off: clear what a killed process left on the HUD.
@@ -53,7 +56,7 @@ public final class BydGuidanceBridge {
                 String reason = frame.equals(lastSent) ? "keepalive" : "changed";
                 try {
                     if(standalone) hud.guidance(frame);
-                    else context.sendBroadcast(guidanceIntent(frame));
+                    else context.sendBroadcast(guidanceIntent(frame).setPackage(adapter));
                 }
                 catch (RuntimeException e) { record(frame, "failed", reason); throw e; }
                 record(frame, "sent", reason);
@@ -61,7 +64,7 @@ public final class BydGuidanceBridge {
                 Log.i(TAG, "guidance broadcast sent; icon=" + frame.icon + " type=" + frame.maneuverType + " turnMeters=" + frame.turnMeters);
             }
             public void end() {
-                try { if(standalone) hud.end(); else context.sendBroadcast(endIntent()); }
+                try { if(standalone) hud.end(); else context.sendBroadcast(endIntent().setPackage(adapter)); }
                 catch (RuntimeException e) { record(null, "failed", "end"); throw e; }
                 record(null, "sent", "end");
                 lastSent = null;

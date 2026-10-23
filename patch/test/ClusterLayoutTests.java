@@ -98,6 +98,18 @@ public final class ClusterLayoutTests {
         check(up[1]==0&&up[3]==425,"negative offset stops at the top");
         int[] mapUp=ClusterTheme.visibleArea(1920,480,map,-10);
         check(mapUp[0]==460&&mapUp[1]==16&&mapUp[3]==384,"5.1 map area moves too");
+        int[] right=ClusterTheme.visibleArea(1920,720,null,0,10);
+        check(right[0]==864&&right[2]==1421&&right[1]==115,"horizontal +10 moves 192 px right");
+        int[] most=ClusterTheme.visibleArea(1920,720,null,0,25);
+        check(most[0]==1152&&most[2]==1709,"horizontal +25 moves 480 px right");
+        int[] edge=ClusterTheme.visibleArea(1920,480,map,0,25);
+        check(edge[2]==1920&&edge[2]-edge[0]==1000,"horizontal offset stops at the surface edge");
+        int[] left=ClusterTheme.visibleArea(600,720,side,0,-25);
+        check(left[0]==0&&left[2]==600,"full-width side card cannot move");
+        check(AmapAdapter.choose(null,null).equals(AmapAdapter.BYD),"DiLink 5 adapter first");
+        check(AmapAdapter.choose("not_installed",null).equals(AmapAdapter.EXAMPLE),"DiLink 3 adapter when only it is proven");
+        check(AmapAdapter.choose("not_installed","not_installed").equals(AmapAdapter.BYD),"unproven falls back to DiLink 5 adapter");
+        check(AmapAdapter.choose(null,"no_receiver").equals(AmapAdapter.BYD),"DiLink 5 adapter kept");
         System.out.println("ClusterLayoutTests: "+count+" checks passed");
     }
 }

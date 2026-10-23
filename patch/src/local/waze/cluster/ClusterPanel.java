@@ -195,6 +195,16 @@ public final class ClusterPanel {
         panel.addView(label(c, "Cluster map colours follow Waze: its map colour setting, Apply for car display and the head unit theme. "
                 + ClusterStatus.theme(), 14));
         slider(panel, c, "Pointer vertical offset (- up, + down)", ClusterSettings.POINTER_VERTICAL, -25, 25, s.pointerVertical);
+        slider(panel, c, "Pointer horizontal offset (- left, + right)", ClusterSettings.POINTER_HORIZONTAL, -25, 25, s.pointerHorizontal);
+        panel.addView(label(c, "Cluster zoom test", 17));
+        LinearLayout zoom = new LinearLayout(c);
+        zoom.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, -2, 1f);
+        half.rightMargin = dp(c, 12);
+        zoom.addView(button(c, "Zoom out", v -> Toast.makeText(activity, ClusterHost.zoom(false), Toast.LENGTH_SHORT).show()), half);
+        zoom.addView(button(c, "Zoom in", v -> Toast.makeText(activity, ClusterHost.zoom(true), Toast.LENGTH_SHORT).show()), new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(zoom);
+        panel.addView(label(c, "Experimental: tests whether Waze zooms the cluster map. Watch the cluster after each press.", 14));
         // Android 13 BYD builds (DiLink 5.1); also kept visible once the owner has chosen a profile.
         if (Build.VERSION.SDK_INT >= 33 || s.profile != DiLink51Layout.Profile.AUTOMATIC) {
             panel.addView(label(c, "DiLink 5.1 cluster layout", 18));

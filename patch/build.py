@@ -70,7 +70,11 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
         if item.filename == 'AndroidManifest.xml':
             data = add_support_components(rename_application(data, 'Waze for BYD'))
         dst.writestr(item, data)
-    dst.write(root / 'helper-dex/classes.dex', 'classes11.dex', compress_type=zipfile.ZIP_DEFLATED)
+    # Reproducible output: the helper DEX takes the original manifest's ZIP date, not the file's build time.
+    helper = zipfile.ZipInfo('classes11.dex', date_time=src.getinfo('AndroidManifest.xml').date_time)
+    helper.compress_type = zipfile.ZIP_DEFLATED
+    helper.external_attr = src.getinfo('AndroidManifest.xml').external_attr
+    dst.writestr(helper, (root / 'helper-dex/classes.dex').read_bytes())
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
 output = 'Waze-for-BYD-5.22.90.123-test.6.apk'
 # Never replace a kept build (a released APK may exist only here); move it away first.

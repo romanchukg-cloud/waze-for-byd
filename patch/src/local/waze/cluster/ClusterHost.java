@@ -110,7 +110,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         Log.i(TAG, "installed test.6; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
     }
     private void settingsChanged(String key) {
-        if (ClusterSettings.POINTER_VERTICAL.equals(key)) { refreshArea(); return; }
+        if (ClusterSettings.POINTER_VERTICAL.equals(key) || ClusterSettings.POINTER_HORIZONTAL.equals(key)) { refreshArea(); return; }
         // The guidance bridge reads its own settings; the HUD opt-in applies after a restart.
         if (ClusterSettings.VEHICLE_GUIDANCE.equals(key) || ClusterSettings.HUD_UNTESTED.equals(key)) return;
         updateMonitor();
@@ -191,7 +191,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         safely("theme", () -> car.onConfigurationChanged(config, done("theme", null)));
     }
     private Rect area(int width, int height, DiLink51Layout.Plan areaPlan) {
-        int[] a = ClusterTheme.visibleArea(width, height, areaPlan, ClusterSettings.state(app).pointerVertical);
+        ClusterSettings.State s = ClusterSettings.state(app);
+        int[] a = ClusterTheme.visibleArea(width, height, areaPlan, s.pointerVertical, s.pointerHorizontal);
         return new Rect(a[0], a[1], a[2], a[3]);
     }
     private void refreshArea() {
@@ -204,6 +205,60 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         });
         ClusterStatus.surface = view.getWidth() + "x" + view.getHeight() + ", visible area " + next.toShortString();
         Log.i(TAG, "visible area " + next + " (pointer offset)");
+    }
+    /**
+     * Test of cluster zoom through Waze's own surface callback (AndroidX onScale), the same path a car
+     * host uses for pinch gestures. Returns a short result for the panel. Map content cannot be checked off the car.
+     */
+    public static String zoom(boolean in) {
+        ClusterHost host = instance;
+        if (host == null) return "Cluster host is not running.";
+        final ISurfaceCallback receiver = host.callback;
+        if (receiver == null || host.delivered == null || host.view == null) return "The cluster map is not shown yet.";
+        Rect area = host.area(host.view.getWidth(), host.view.getHeight(), host.plan);
+        try {
+            receiver.onScale(area.exactCenterX(), area.exactCenterY(), in ? 1.25f : 0.8f);
+            String probe = gestureProbe(receiver);
+            Log.i(TAG, "cluster zoom " + (in ? "in" : "out") + " sent at " + area.centerX() + "," + area.centerY() + "; " + probe);
+            return "Zoom " + (in ? "in" : "out") + " sent. " + probe;
+        } catch (Exception e) {
+            Log.e(TAG, "cluster zoom", e);
+            return "Zoom failed: " + e.getClass().getSimpleName() + ".";
+        }
+    }
+    /**
+     * Diagnostic for the zoom test (names pinned to Waze 5.22.90.123): does Waze's cluster surface callback
+     * have a gesture controller (car_lib.h.a.p.c, a car_lib.h.a.j) that onScale can drive?
+     */
+    private static String gestureProbe(Object stub) {
+        try {
+            java.lang.reflect.Field cb = stub.getClass().getDeclaredField("mSurfaceCallback");
+            cb.setAccessible(true);
+            Object fanOut = cb.get(stub);
+            java.lang.reflect.Field list = fanOut.getClass().getDeclaredField("a");
+            list.setAccessible(true);
+            int listeners = 0, controllers = 0;
+            StringBuilder flags = new StringBuilder();
+            for (Object listener : (java.util.List<?>) list.get(fanOut)) {
+                listeners++;
+                if (!"com.waze.car_lib.h.a.n".equals(listener.getClass().getName())) continue;
+                java.lang.reflect.Field variant = listener.getClass().getDeclaredField("b"), owner = listener.getClass().getDeclaredField("a");
+                variant.setAccessible(true); owner.setAccessible(true);
+                if (variant.getInt(listener) != 0) continue;
+                Object presenter = owner.get(listener);
+                java.lang.reflect.Field c = presenter.getClass().getDeclaredField("c");
+                c.setAccessible(true);
+                Object controller = c.get(presenter);
+                if (controller == null) { flags.append(" controller=null"); continue; }
+                controllers++;
+                java.lang.reflect.Field e = controller.getClass().getDeclaredField("e");
+                e.setAccessible(true);
+                flags.append(" e=").append(e.getBoolean(controller));
+            }
+            return "Gesture listeners " + listeners + ", controllers " + controllers + "." + flags;
+        } catch (Throwable t) {
+            return "Gesture probe failed: " + t.getClass().getSimpleName() + ".";
+        }
     }
     private boolean layout51() { return DiLink51Layout.active(ClusterSettings.profile(app), Build.FINGERPRINT); }
     private void updateMonitor() {

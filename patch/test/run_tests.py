@@ -23,7 +23,7 @@ if out.exists():
 (out / 'classes').mkdir(parents=True)
 sources = [root / 'src/local/waze/cluster' / (name + '.java') for name in
            ('GuidanceFrame', 'GuidanceSession', 'WazeGuidance', 'BydGuidanceBridge', 'StandaloneHudPackets', 'StandaloneHudGate', 'StandaloneHudOutput',
-            'DiLink51Layout', 'ClusterActivityState', 'ClusterActivityMonitor', 'ClusterSettings', 'ClusterStatus', 'ClusterTheme')]
+            'DiLink51Layout', 'ClusterActivityState', 'ClusterActivityMonitor', 'ClusterSettings', 'ClusterStatus', 'ClusterTheme', 'AmapAdapter')]
 sources += sorted((root / 'src/local/waze/diagnostics').glob('*.java'))
 sources += [root / 'test/GuidanceTests.java', root / 'test/GuidanceAndroidTests.java', root / 'test/StandaloneHudTests.java',
             root / 'test/ClusterLayoutTests.java']
