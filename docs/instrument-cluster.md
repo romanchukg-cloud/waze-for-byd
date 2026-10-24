@@ -67,12 +67,13 @@ Android 13 emulator at the car's resolution (2560 × 1440, 320 dpi), not in a ca
   route screens cover it the same way they cover Waze's own buttons. It also hides
   while a Waze panel in the map layer (such as the expanded ETA overview) covers its place.
 - **Screen edge margin (Waze buttons and panels).** 0–48 dp, default 16 dp. It moves
-  Waze's buttons, the Where to? sheet, the side menu and the ETA bar away from the
-  left, right and bottom edges; the map still fills the screen. 0 keeps Waze's own layout.
+  Waze's buttons, cards and panels away from the top, left and right edges; the map
+  still fills the screen. 0 keeps Waze's own layout. The bottom is not moved, so the ETA
+  bar and the Where to? sheet stay on the navigation bar.
   - Waze adds its own 16 dp beside any non-zero side inset, so the sides are never
     closer than 16 dp once the margin is on.
   - The side menu takes its height from the screen, not from the insets, so its panel is
-    shortened instead.
+    shortened to end the margin above the navigation bar.
   - Changes apply immediately.
 - **Pointer horizontal offset (- left, + right).** −25 % to +25 % of the cluster width.
 - **Cluster zoom test.** Zoom out and Zoom in buttons send a pinch to Waze's cluster

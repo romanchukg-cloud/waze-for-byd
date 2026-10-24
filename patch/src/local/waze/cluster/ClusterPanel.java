@@ -50,8 +50,8 @@ public final class ClusterPanel {
     private static int dp(Context c, int value) { return Math.round(value * c.getResources().getDisplayMetrics().density); }
     /**
      * BYD screens cut close to Waze's buttons and sheets. Waze places them from the window insets, so the
-     * owner's edge margin is added to the navigation-bar insets on the left, right and bottom; the map still
-     * fills the screen.
+     * owner's edge margin is added to the insets at the top, left and right; the map still fills the screen.
+     * The bottom is left alone: Waze's ETA bar and Where to? sheet stay on the navigation bar.
      */
     private static void applyEdgeMargin(Activity activity) {
         View content = activity.findViewById(android.R.id.content);
@@ -66,11 +66,14 @@ public final class ClusterPanel {
         int side = ClusterTheme.wazeSideInset(margin, gutter);
         if (Build.VERSION.SDK_INT >= 30) {
             android.graphics.Insets nav = insets.getInsets(WindowInsets.Type.navigationBars());
-            return new WindowInsets.Builder(insets).setInsets(WindowInsets.Type.navigationBars(),
-                    android.graphics.Insets.of(nav.left + side, nav.top, nav.right + side, nav.bottom + margin)).build();
+            android.graphics.Insets status = insets.getInsets(WindowInsets.Type.statusBars());
+            return new WindowInsets.Builder(insets)
+                    .setInsets(WindowInsets.Type.navigationBars(), android.graphics.Insets.of(nav.left + side, nav.top, nav.right + side, nav.bottom))
+                    .setInsets(WindowInsets.Type.statusBars(), android.graphics.Insets.of(status.left, status.top + margin, status.right, status.bottom))
+                    .build();
         }
-        return insets.replaceSystemWindowInsets(insets.getSystemWindowInsetLeft() + side, insets.getSystemWindowInsetTop(),
-                insets.getSystemWindowInsetRight() + side, insets.getSystemWindowInsetBottom() + margin);
+        return insets.replaceSystemWindowInsets(insets.getSystemWindowInsetLeft() + side, insets.getSystemWindowInsetTop() + margin,
+                insets.getSystemWindowInsetRight() + side, insets.getSystemWindowInsetBottom());
     }
     private static View wazeView(Activity activity, String name) {
         int id = activity.getResources().getIdentifier(name, "id", activity.getPackageName());
@@ -106,8 +109,14 @@ public final class ClusterPanel {
         View button = root.findViewWithTag(TAG);
         if (button == null) return;
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) button.getLayoutParams();
+        lp.topMargin = topMargin(activity);
         lp.rightMargin = rightMargin(activity);
         button.setLayoutParams(lp);
+    }
+    /** Waze's top row starts right below the status bar, plus the edge margin. */
+    private static int topMargin(Activity activity) {
+        WindowInsets insets = activity.getWindow().getDecorView().getRootWindowInsets();
+        return (insets == null ? dp(activity, 24) : insets.getStableInsetTop()) + dp(activity, ClusterSettings.state(activity).edgeMargin);
     }
     private static int rightMargin(Activity activity) {
         int gutter = dp(activity, WAZE_GUTTER);
@@ -132,9 +141,8 @@ public final class ClusterPanel {
         button.setTag(TAG);
         int size = dp(activity, ClusterButton.SIZE_DP);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size, Gravity.TOP | Gravity.RIGHT);
-        int inset = root.getRootWindowInsets() == null ? dp(activity, 24) : root.getRootWindowInsets().getStableInsetTop();
         // Top row, left of Waze's round music and sound buttons (56 dp each, 8 dp apart, measured on the car).
-        lp.topMargin = inset;
+        lp.topMargin = topMargin(activity);
         lp.rightMargin = rightMargin(activity);
         button.setOnClickListener(v -> show(activity));
         layer.addView(button, lp);
