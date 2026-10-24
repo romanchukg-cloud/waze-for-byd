@@ -171,13 +171,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
     }
     /** Reads Waze's shared map night flag (centre screen and cluster), for the local status only. */
     private void reportCarTheme() {
-        String seen;
-        try {
-            java.lang.reflect.Field field = Class.forName("com.waze.nightmode.u").getDeclaredField("g");
-            field.setAccessible(true);
-            Object value = Class.forName("kotlinx.coroutines.b.bi").getMethod("d").invoke(field.get(null));
-            seen = value == null ? "not set yet" : Boolean.TRUE.equals(value) ? "dark" : "light";
-        } catch (Throwable e) { seen = "unknown"; }
+        Boolean value = ClusterTheme.wazeMapNight();
+        String seen = value == null ? "unknown or not set yet" : value ? "dark" : "light";
         ClusterStatus.wazeMainTheme = "Waze map colours: " + seen + ".";
         if (!seen.equals(carThemeSeen)) { carThemeSeen = seen; Log.i(TAG, "Waze map colours " + seen); }
     }

@@ -106,6 +106,10 @@ public final class ClusterLayoutTests {
         check(edge[2]==1920&&edge[2]-edge[0]==1000,"horizontal offset stops at the surface edge");
         int[] left=ClusterTheme.visibleArea(600,720,side,0,-25);
         check(left[0]==0&&left[2]==600,"full-width side card cannot move");
+        check(ClusterTheme.wazeSideInset(0,32)==0&&ClusterTheme.wazeSideShift(0,32)==0,"edge margin off leaves Waze's insets");
+        check(ClusterTheme.wazeSideShift(ClusterTheme.wazeSideInset(32,32),32)==33,"16 dp margin lands on Waze's gutter");
+        check(ClusterTheme.wazeSideInset(96,32)==64&&ClusterTheme.wazeSideShift(64,32)==96,"48 dp margin: inset 32 dp plus gutter");
+        check(ClusterTheme.wazeSideShift(ClusterTheme.wazeSideInset(10,32),32)==33,"margins under the gutter end at the gutter");
         check(AmapAdapter.choose(null,null).equals(AmapAdapter.BYD),"DiLink 5 adapter first");
         check(AmapAdapter.choose("not_installed",null).equals(AmapAdapter.EXAMPLE),"DiLink 3 adapter when only it is proven");
         check(AmapAdapter.choose("not_installed","not_installed").equals(AmapAdapter.BYD),"unproven falls back to DiLink 5 adapter");

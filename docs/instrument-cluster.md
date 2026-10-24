@@ -54,6 +54,30 @@ Match screen option like Google Maps' was tried in test.6 candidates:
 - **Settings location.** The DiLink 5.1 layout settings moved from Support to this
   panel. Support keeps the status.
 
+## After test.6 (not released yet)
+
+These changes are in the source after test.6. So far they were checked only on an
+Android 13 emulator at the car's resolution (2560 × 1440, 320 dpi), not in a car.
+
+- **Button design.** The Instrument cluster button is now a 56 dp round button with a
+  gauge icon, like Waze's music and sound buttons beside it: white with a dark icon by
+  day, black with a light icon at night (colours from Waze's palette, following Waze's
+  map colours).
+- **Layering.** The button sits just above Waze's map layer. Waze's menu, sheets and
+  route screens cover it the same way they cover Waze's own buttons. It also hides
+  while a Waze panel in the map layer (such as the expanded ETA overview) covers its place.
+- **Screen edge margin (Waze buttons and panels).** 0–48 dp, default 16 dp. It moves
+  Waze's buttons, the Where to? sheet, the side menu and the ETA bar away from the
+  left, right and bottom edges; the map still fills the screen. 0 keeps Waze's own layout.
+  - Waze adds its own 16 dp beside any non-zero side inset, so the sides are never
+    closer than 16 dp once the margin is on.
+  - The side menu takes its height from the screen, not from the insets, so its panel is
+    shortened instead.
+  - Changes apply immediately.
+- **Pointer horizontal offset (- left, + right).** −25 % to +25 % of the cluster width.
+- **Cluster zoom test.** Zoom out and Zoom in buttons send a pinch to Waze's cluster
+  map. Whether the cluster really zooms still needs checking in a car.
+
 ## Validation
 
 **Reference car: DiLink 5.0 / Android 12.**

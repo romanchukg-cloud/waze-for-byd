@@ -3,9 +3,7 @@ package local.waze.cluster;
 
 import android.app.*;
 import android.content.*;
-import android.graphics.Color;
 import android.graphics.Rect;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.*;
@@ -14,15 +12,32 @@ import android.widget.*;
 /** The Instrument cluster button and settings panel, matching Google Maps for BYD. Changes apply live. */
 public final class ClusterPanel {
     private static final String MAIN = "com.waze.MainActivity", TAG = "local.cluster.settings.button";
+    private static final int WAZE_GUTTER = 16;
     private static SharedPreferences preferences;
+    private static java.lang.ref.WeakReference<Activity> resumed = new java.lang.ref.WeakReference<>(null);
+    private static final java.util.Map<View, Boolean> insetViews = new java.util.WeakHashMap<>();
+    private static final SharedPreferences.OnSharedPreferenceChangeListener changes = (p, key) -> {
+        if (!ClusterSettings.EDGE_MARGIN.equals(key)) return;
+        Activity a = resumed.get();
+        if (a == null || a.isFinishing() || a.isDestroyed()) return;
+        View content = a.findViewById(android.R.id.content);
+        if (content != null) content.requestApplyInsets();
+        position(a);
+        menuMargin(a);
+    };
     private ClusterPanel() { }
 
     public static synchronized void install(Application app) {
         if (preferences != null) return;
         preferences = ClusterSettings.prefs(app);
+        preferences.registerOnSharedPreferenceChangeListener(changes);
         app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             public void onActivityResumed(Activity a) {
-                if (MAIN.equals(a.getClass().getName())) a.getWindow().getDecorView().post(() -> attach(a));
+                if (!MAIN.equals(a.getClass().getName())) return;
+                resumed = new java.lang.ref.WeakReference<>(a);
+                applyEdgeMargin(a);
+                menuMargin(a);
+                a.getWindow().getDecorView().post(() -> attach(a));
             }
             public void onActivityCreated(Activity a, Bundle b) { }
             public void onActivityStarted(Activity a) { }
@@ -33,29 +48,124 @@ public final class ClusterPanel {
         });
     }
     private static int dp(Context c, int value) { return Math.round(value * c.getResources().getDisplayMetrics().density); }
+    /**
+     * BYD screens cut close to Waze's buttons and sheets. Waze places them from the window insets, so the
+     * owner's edge margin is added to the navigation-bar insets on the left, right and bottom; the map still
+     * fills the screen.
+     */
+    private static void applyEdgeMargin(Activity activity) {
+        View content = activity.findViewById(android.R.id.content);
+        if (content == null || insetViews.containsKey(content)) return;
+        insetViews.put(content, Boolean.TRUE);
+        content.setOnApplyWindowInsetsListener((v, insets) ->
+                v.onApplyWindowInsets(withMargin(insets, dp(activity, ClusterSettings.state(activity).edgeMargin), dp(activity, WAZE_GUTTER))));
+        content.requestApplyInsets();
+    }
+    static WindowInsets withMargin(WindowInsets insets, int margin, int gutter) {
+        if (margin <= 0) return insets;
+        int side = ClusterTheme.wazeSideInset(margin, gutter);
+        if (Build.VERSION.SDK_INT >= 30) {
+            android.graphics.Insets nav = insets.getInsets(WindowInsets.Type.navigationBars());
+            return new WindowInsets.Builder(insets).setInsets(WindowInsets.Type.navigationBars(),
+                    android.graphics.Insets.of(nav.left + side, nav.top, nav.right + side, nav.bottom + margin)).build();
+        }
+        return insets.replaceSystemWindowInsets(insets.getSystemWindowInsetLeft() + side, insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight() + side, insets.getSystemWindowInsetBottom() + margin);
+    }
+    private static View wazeView(Activity activity, String name) {
+        int id = activity.getResources().getIdentifier(name, "id", activity.getPackageName());
+        return id == 0 ? null : activity.findViewById(id);
+    }
+    private static final java.util.Map<View, Boolean> contentViews = new java.util.WeakHashMap<>();
+    /**
+     * Waze's side menu and Where to? sheet (its mainContent panel) take their height from the screen, not from
+     * the insets, and run under the navigation bar. With an edge margin on, the panel ends that margin above
+     * the navigation bar like Waze's other controls; 0 keeps Waze's own layout.
+     */
+    private static void menuMargin(Activity activity) {
+        View panel = wazeView(activity, "mainContent");
+        if (panel == null) return;
+        if (!contentViews.containsKey(panel)) {
+            contentViews.put(panel, Boolean.TRUE);
+            panel.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> menuMargin(activity));
+        }
+        View root = activity.getWindow().getDecorView();
+        WindowInsets insets = root.getRootWindowInsets();
+        int margin = dp(activity, ClusterSettings.state(activity).edgeMargin), bottom = 0;
+        if (margin > 0 && insets != null && root.getHeight() > 0) {
+            int[] at = new int[2];
+            panel.getLocationInWindow(at);
+            int nav = Build.VERSION.SDK_INT >= 30 ? insets.getInsets(WindowInsets.Type.navigationBars()).bottom : insets.getStableInsetBottom();
+            bottom = Math.max(0, at[1] + panel.getHeight() - (root.getHeight() - nav - margin));
+        }
+        if (panel.getPaddingBottom() != bottom) panel.setPadding(panel.getPaddingLeft(), panel.getPaddingTop(), panel.getPaddingRight(), bottom);
+    }
+    /** Keeps the Instrument cluster button just left of Waze's music button, which moves with the edge margin. */
+    private static void position(Activity activity) {
+        ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
+        View button = root.findViewWithTag(TAG);
+        if (button == null) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) button.getLayoutParams();
+        lp.rightMargin = rightMargin(activity);
+        button.setLayoutParams(lp);
+    }
+    private static int rightMargin(Activity activity) {
+        int gutter = dp(activity, WAZE_GUTTER);
+        int side = ClusterTheme.wazeSideInset(dp(activity, ClusterSettings.state(activity).edgeMargin), gutter);
+        return dp(activity, 128) + ClusterTheme.wazeSideShift(side, gutter);
+    }
     private static void attach(Activity activity) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
         if (root.findViewWithTag(TAG) != null) return;
-        Button button = new Button(activity);
+        // Just above Waze's map and its floating buttons, so Waze's menu, sheets and route screens (later
+        // layers of the same parent) cover the button as they cover Waze's own buttons.
+        ViewGroup parent = root;
+        int index = -1;
+        View map = wazeView(activity, "mainContentCompose");
+        if (map != null && map.getParent() instanceof ViewGroup) {
+            parent = (ViewGroup) map.getParent();
+            index = parent.indexOfChild(map) + 1;
+        }
+        FrameLayout layer = new FrameLayout(activity);
+        ClusterButton button = new ClusterButton(activity);
         button.setTag(TAG);
-        button.setText("Instrument cluster");
-        button.setTextSize(14);
-        button.setAllCaps(false);
-        button.setTextColor(Color.WHITE);
-        button.setPadding(dp(activity, 16), 0, dp(activity, 16), 0);
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(0xee303438);
-        background.setCornerRadius(dp(activity, 24));
-        button.setBackground(background);
-        button.setElevation(dp(activity, 6));
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, dp(activity, 44), Gravity.TOP | Gravity.RIGHT);
-        int inset = root.getRootWindowInsets() == null ? dp(activity, 48) : root.getRootWindowInsets().getStableInsetTop();
+        int size = dp(activity, ClusterButton.SIZE_DP);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size, Gravity.TOP | Gravity.RIGHT);
+        int inset = root.getRootWindowInsets() == null ? dp(activity, 24) : root.getRootWindowInsets().getStableInsetTop();
         // Top row, left of Waze's round music and sound buttons (56 dp each, 8 dp apart, measured on the car).
-        lp.topMargin = inset + dp(activity, 6);
-        lp.rightMargin = dp(activity, 128);
+        lp.topMargin = inset;
+        lp.rightMargin = rightMargin(activity);
         button.setOnClickListener(v -> show(activity));
-        root.addView(button, lp);
+        layer.addView(button, lp);
+        parent.addView(layer, index, new ViewGroup.LayoutParams(-1, -1));
+        if (map != null) map.getViewTreeObserver().addOnGlobalLayoutListener(() ->
+                button.setVisibility(covered(activity, map, button) ? View.INVISIBLE : View.VISIBLE));
+    }
+    /**
+     * Waze draws some panels, like the expanded ETA overview, as Android views inside its map layer, hiding its
+     * own buttons. The button hides too while any of them except the map covers its place.
+     */
+    private static boolean covered(Activity activity, View map, View button) {
+        int mapId = activity.getResources().getIdentifier("wazeMapAndroidView", "id", activity.getPackageName());
+        int[] at = new int[2];
+        button.getLocationInWindow(at);
+        Rect place = new Rect(at[0], at[1], at[0] + button.getWidth(), at[1] + button.getHeight());
+        java.util.ArrayDeque<View> views = new java.util.ArrayDeque<>();
+        views.add(map);
+        while (!views.isEmpty()) {
+            View v = views.poll();
+            if (v.getVisibility() != View.VISIBLE) continue;
+            if (v.getClass().getName().endsWith(".ViewFactoryHolder")) {
+                if (v.getWidth() == 0 || v.getHeight() == 0 || mapId != 0 && v.findViewById(mapId) != null) continue;
+                v.getLocationInWindow(at);
+                if (Rect.intersects(place, new Rect(at[0], at[1], at[0] + v.getWidth(), at[1] + v.getHeight()))) return true;
+            } else if (v instanceof ViewGroup) {
+                ViewGroup g = (ViewGroup) v;
+                for (int i = 0; i < g.getChildCount(); i++) views.add(g.getChildAt(i));
+            }
+        }
+        return false;
     }
     private static TextView label(Context c, String text, int size) {
         TextView v = new TextView(c);
@@ -137,7 +247,10 @@ public final class ClusterPanel {
         if (mode != null) mode.setText(full ? "Window" : "Full screen");
     }
     private static void slider(LinearLayout panel, Context c, String title, String key, int min, int max, int value) {
-        TextView text = label(c, title + ": " + value + "%", 17);
+        slider(panel, c, title, key, min, max, value, "%");
+    }
+    private static void slider(LinearLayout panel, Context c, String title, String key, int min, int max, int value, String unit) {
+        TextView text = label(c, title + ": " + value + unit, 17);
         panel.addView(text);
         SeekBar seek = new SeekBar(c);
         seek.setMax(max - min);
@@ -146,7 +259,7 @@ public final class ClusterPanel {
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar s, int progress, boolean user) {
                 int n = progress + min;
-                text.setText(title + ": " + n + "%");
+                text.setText(title + ": " + n + unit);
                 if (user) preferences.edit().putInt(key, n).apply();
             }
             public void onStartTrackingTouch(SeekBar s) { }
@@ -196,6 +309,7 @@ public final class ClusterPanel {
                 + ClusterStatus.theme(), 14));
         slider(panel, c, "Pointer vertical offset (- up, + down)", ClusterSettings.POINTER_VERTICAL, -25, 25, s.pointerVertical);
         slider(panel, c, "Pointer horizontal offset (- left, + right)", ClusterSettings.POINTER_HORIZONTAL, -25, 25, s.pointerHorizontal);
+        slider(panel, c, "Screen edge margin (Waze buttons and panels)", ClusterSettings.EDGE_MARGIN, 0, 48, s.edgeMargin, " dp");
         panel.addView(label(c, "Cluster zoom test", 17));
         LinearLayout zoom = new LinearLayout(c);
         zoom.setOrientation(LinearLayout.HORIZONTAL);

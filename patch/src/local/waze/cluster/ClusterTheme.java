@@ -67,4 +67,27 @@ public final class ClusterTheme {
         else sideways = Math.max(sideways, -left);
         return new int[]{left + sideways, top + shift, right + sideways, bottom + shift};
     }
+    /**
+     * Waze adds its own gutter (16 dp) beside any non-zero side inset; measured on the emulator at 16, 30,
+     * 32 and 48 dp. Returns the side inset that puts Waze's controls margin px from the edge (at least the
+     * gutter plus 1 px once on), and 0 when the margin is off.
+     */
+    public static int wazeSideInset(int margin, int gutter) { return margin <= 0 ? 0 : Math.max(1, margin - gutter); }
+    /** Where Waze's controls end up for a side inset from wazeSideInset. */
+    public static int wazeSideShift(int inset, int gutter) { return inset <= 0 ? 0 : inset + gutter; }
+    private static java.lang.reflect.Field wazeNight;
+    private static java.lang.reflect.Method flowValue;
+    /** Waze's shared map night flag (centre screen and cluster); null when unknown or not set yet. */
+    static Boolean wazeMapNight() {
+        try {
+            if (flowValue == null) {
+                java.lang.reflect.Field field = Class.forName("com.waze.nightmode.u").getDeclaredField("g");
+                field.setAccessible(true);
+                flowValue = Class.forName("kotlinx.coroutines.b.bi").getMethod("d");
+                wazeNight = field;
+            }
+            Object value = flowValue.invoke(wazeNight.get(null));
+            return value instanceof Boolean ? (Boolean) value : null;
+        } catch (Throwable e) { return null; }
+    }
 }
