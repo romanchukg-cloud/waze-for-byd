@@ -76,7 +76,7 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
     helper.external_attr = src.getinfo('AndroidManifest.xml').external_attr
     dst.writestr(helper, (root / 'helper-dex/classes.dex').read_bytes())
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
-output = 'Waze-for-BYD-5.22.90.123-test.6.apk'
+output = 'Waze-for-BYD-5.22.90.123-test.7.apk'
 # Never replace a kept build (a released APK may exist only here); move it away first.
 assert not (root / output).exists() or os.environ.get('WAZE_ALLOW_OVERWRITE') == '1', \
     f'{output} already exists; move it away or set WAZE_ALLOW_OVERWRITE=1'

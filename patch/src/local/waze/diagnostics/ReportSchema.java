@@ -7,7 +7,7 @@ import java.util.*;
 
 /** Closed navigation-profile schema. Reject extras rather than upload arbitrary data. */
 public final class ReportSchema {
-    public static final String PROJECT = "waze-for-byd", BUILD = "byd.test.6";
+    public static final String PROJECT = "waze-for-byd", BUILD = "byd.test.7";
     public static final int MAX_BYTES = 262144, MAX_EVENTS = 500;
     public static final String[] CATEGORIES = {"hud", "cluster_map", "wheel_buttons", "navigation", "other"};
     private static final String[] OBSERVED = {"yes", "no", "unknown"};

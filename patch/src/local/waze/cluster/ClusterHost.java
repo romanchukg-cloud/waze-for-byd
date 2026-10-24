@@ -107,7 +107,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         displays.registerDisplayListener(this, main);
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
-        Log.i(TAG, "installed test.6; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+        Log.i(TAG, "installed test.7; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
     }
     private void settingsChanged(String key) {
         if (ClusterSettings.POINTER_VERTICAL.equals(key) || ClusterSettings.POINTER_HORIZONTAL.equals(key)) { refreshArea(); return; }
