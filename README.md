@@ -17,7 +17,7 @@ inputs and are not included.
 Prebuilt APKs are no longer published. This repository provides the patch
 source and the build tools; build an APK yourself from your own copy of the
 pinned Waze input APK (see [Build](#build)). The
-[release notes](docs/releases/v5.22.90.123-byd.test.6.md) describe what each
+[release notes](docs/releases/v5.22.90.123-byd.test.7.md) describe what each
 test build changed and how it was validated.
 
 **Requirements for a built APK:** Android 10+ and an ARM64/ARMv7 device. It keeps

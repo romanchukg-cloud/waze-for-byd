@@ -54,10 +54,11 @@ Match screen option like Google Maps' was tried in test.6 candidates:
 - **Settings location.** The DiLink 5.1 layout settings moved from Support to this
   panel. Support keeps the status.
 
-## After test.6 (not released yet)
+## Changes in test.7
 
-These changes are in the source after test.6. So far they were checked only on an
-Android 13 emulator at the car's resolution (2560 × 1440, 320 dpi), not in a car.
+Checked on the reference DiLink 5.0 car and on an Android 13 emulator at the car's
+resolution (2560 × 1440, 320 dpi). See the
+[test.7 release notes](releases/v5.22.90.123-byd.test.7.md) for what still needs testing.
 
 - **Button design.** The Instrument cluster button is now a 56 dp round button with a
   gauge icon, like Waze's music and sound buttons beside it: white with a dark icon by
