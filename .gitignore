@@ -31,6 +31,7 @@ local.properties
 __pycache__/
 .DS_Store
 /patch/decoded
+/patch/decoded-*
 /patch/classes/
 /patch/helper-dex/
 /patch/test-out/

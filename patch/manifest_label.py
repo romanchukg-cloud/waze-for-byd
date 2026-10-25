@@ -85,3 +85,39 @@ def rename_application(data: bytes, label: str) -> bytes:
     result = bytearray(data[:u16(data, 2)]) + b''.join(chunks)
     struct.pack_into('<I', result, 4, len(result))
     return bytes(result)
+
+
+def set_version_code(data: bytes, code: int) -> bytes:
+    """Replace the manifest's android:versionCode; the chunk layout and string pool stay the same."""
+    def u16(buf, pos):
+        return struct.unpack_from('<H', buf, pos)[0]
+
+    def u32(buf, pos):
+        return struct.unpack_from('<I', buf, pos)[0]
+
+    out = bytearray(data)
+    if u16(out, 0) != 3 or u32(out, 4) != len(out):
+        raise ValueError('Expected complete binary Android XML')
+    pos = u16(out, 2)
+    resource_ids = []
+    changed = 0
+    while pos < len(out):
+        kind, header, size = u16(out, pos), u16(out, pos + 2), u32(out, pos + 4)
+        if kind == 0x180:  # RES_XML_RESOURCE_MAP_TYPE
+            resource_ids = [u32(out, pos + header + 4 * i) for i in range((size - header) // 4)]
+        elif kind == 0x102 and not changed:  # the first element is <manifest>
+            attr_start, attr_size, attr_count = struct.unpack_from('<3H', out, pos + header + 8)
+            for i in range(attr_count):
+                attr = pos + header + attr_start + i * attr_size
+                name = u32(out, attr + 4)
+                if name < len(resource_ids) and resource_ids[name] == 0x0101021b:  # android:versionCode
+                    if out[attr + 15] != 0x10:  # TYPE_INT_DEC
+                        raise ValueError('versionCode is not a decimal integer')
+                    struct.pack_into('<I', out, attr + 16, code)
+                    changed += 1
+            if not changed:
+                raise ValueError('No versionCode on <manifest>')
+        pos += size
+    if changed != 1:
+        raise ValueError(f'Expected one versionCode, found {changed}')
+    return bytes(out)

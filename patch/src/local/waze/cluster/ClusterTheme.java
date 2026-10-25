@@ -83,7 +83,7 @@ public final class ClusterTheme {
             if (flowValue == null) {
                 java.lang.reflect.Field field = Class.forName("com.waze.nightmode.u").getDeclaredField("g");
                 field.setAccessible(true);
-                flowValue = Class.forName("kotlinx.coroutines.b.bi").getMethod("d");
+                flowValue = Class.forName("kotlinx.coroutines.b.bj").getMethod("d");
                 wazeNight = field;
             }
             Object value = flowValue.invoke(wazeNight.get(null));

@@ -83,7 +83,7 @@ final class DiagnosticStore {
             capture.put(ReportSchema.obj("elapsed_ms",e.getLong("at")-start,"type",e.getString("type"),"data",e.getJSONObject("data")));
         }
         JSONObject r=ReportSchema.obj("schema_version",1,"project_id",ReportSchema.PROJECT,"consent","public_issue",
-            "app",ReportSchema.obj("version","5.22.90.123","build",ReportSchema.BUILD),
+            "app",ReportSchema.obj("version","5.26.0.0","build",ReportSchema.BUILD),
             "device",ReportSchema.obj("android_api",Build.VERSION.SDK_INT,
                 "android_version",ReportSchema.safeText(Build.VERSION.RELEASE,160),
                 "manufacturer",ReportSchema.safeText(Build.MANUFACTURER,160),"model",ReportSchema.safeText(Build.MODEL,160),"firmware","unknown"),

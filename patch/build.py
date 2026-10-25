@@ -2,33 +2,41 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Build Waze for BYD from the pinned local APK and an existing signing key."""
 import hashlib, os, pathlib, shutil, subprocess, zipfile
-from manifest_label import rename_application
+from manifest_label import rename_application, set_version_code
 from manifest_support import add_support_components
 root = pathlib.Path(__file__).resolve().parent
 sdk = pathlib.Path(os.environ.get('ANDROID_SDK_ROOT', pathlib.Path.home() / 'Library/Android/sdk'))
 bt = sdk / 'build-tools/36.0.0'
 android = sdk / 'platforms/android-35/android.jar'
 apktool = pathlib.Path(os.environ.get('APKTOOL_JAR', '/opt/homebrew/Cellar/apktool/2.11.1/libexec/apktool_2.11.1.jar'))
-original = pathlib.Path(os.environ.get('WAZE_INPUT_APK', root.parent / 'waze-5-22-90-123.apk')).expanduser().resolve()
+# Waze 5.26.0.0 (versionCode 1030742) from the APKMirror bundle
+# com.waze_5.26.0.0-1030742_1arch_2dpi_24lang_115dd2209a60866ddb880cd03246f5ac_apkmirror.com.apkm
+# (SHA-256 e44c3eb2a974b689950c89fe038aea1758b234886bf113032e7d211329532ab1, Google's Waze certificate),
+# merged into one APK with APKEditor 1.4.9: java -jar APKEditor-1.4.9.jar m -i <apkm> -o waze-5-26-0-0.apk
+original = pathlib.Path(os.environ.get('WAZE_INPUT_APK', root.parent / 'waze-5-26-0-0.apk')).expanduser().resolve()
 key = pathlib.Path(os.environ.get('WAZE_KEYSTORE', root / 'test.keystore')).expanduser().resolve()
 alias = os.environ.get('WAZE_KEY_ALIAS', 'cluster-test')
 password = os.environ.get('WAZE_KEYSTORE_PASSWORD')
 assert key.is_file(), 'Existing signing key required; refusing to generate a replacement'
 assert password, 'Set WAZE_KEYSTORE_PASSWORD for the existing signing key'
 os.environ.setdefault('WAZE_KEY_PASSWORD', password)
-expected = 'a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80'
+expected = '66a367a5a55b9d808fcb6e613f96adc6148709fa563666810a90b9daf849bb49'
+decoded = 'decoded-5.26.0.0'
+# Above every 5.22.90.123-based build (1030811), so it installs as an update and Waze re-extracts its
+# resources, which it does only when the versionCode grows.
+version_code = 1030742 + 1000000
 def run(*args): subprocess.run([str(x) for x in args], cwd=root, check=True)
 assert hashlib.sha256(original.read_bytes()).hexdigest() == expected, 'Unexpected input APK'
-if not (root / 'decoded').exists(): run('java', '-jar', apktool, 'd', '-r', original, '-o', 'decoded')
+if not (root / decoded).exists(): run('java', '-jar', apktool, 'd', '-r', original, '-o', decoded)
 for generated in ('smali-overrides', 'classes', 'helper-dex'):
     directory = root / generated
     assert not directory.is_symlink(), f'Refusing to clean a symlink: {directory}'
     if directory.exists(): shutil.rmtree(directory)
-source = root / 'decoded/smali_classes6/com/waze/mobile/WazeMobileApplication.smali'
+source = root / decoded / 'smali_classes6/com/waze/mobile/WazeMobileApplication.smali'
 s = source.read_text()
 hook = '    invoke-static {p0}, Llocal/waze/cluster/ClusterHost;->install(Landroid/app/Application;)V'
 if hook not in s:
-    marker = '    invoke-super {p0}, Lcom/waze/ly;->onCreate()V'
+    marker = '    invoke-super {p0}, Lcom/waze/lr;->onCreate()V'
     assert s.count(marker) == 1
     s = s.replace(marker, marker + '\n\n' + hook)
 application_overlay = root / 'smali-overrides/classes6/com/waze/mobile/WazeMobileApplication.smali'
@@ -36,39 +44,42 @@ application_overlay.parent.mkdir(parents=True, exist_ok=True)
 application_overlay.write_text(s)
 # Waze hard-codes a dark cluster map. Use its Automatic mode, so the cluster follows Waze's own colours
 # (Apply for car display) and the car theme like the centre screen.
-map_source = root / 'decoded/smali_classes6/com/waze/car_lib/d/t.smali'
+map_source = root / decoded / 'smali_classes6/com/waze/car_lib/e/t.smali'
 cluster_map = map_source.read_text()
-map_marker = '    sget-object v12, Lcom/waze/map/b/be;->b:Lcom/waze/map/b/be;'
+map_marker = '    sget-object v12, Lcom/waze/map/b/ba;->b:Lcom/waze/map/b/ba;'
 assert cluster_map.count(map_marker) == 1, 'Pinned cluster map mode location not found'
-map_overlay = root / 'smali-overrides/classes6/com/waze/car_lib/d/t.smali'
+map_overlay = root / 'smali-overrides/classes6/com/waze/car_lib/e/t.smali'
 map_overlay.parent.mkdir(parents=True, exist_ok=True)
-map_overlay.write_text(cluster_map.replace(map_marker, '    sget-object v12, Lcom/waze/map/b/be;->a:Lcom/waze/map/b/be;'))
-state_source = root / 'decoded/smali_classes5/com/waze/car_lib/d/r.smali'
+map_overlay.write_text(cluster_map.replace(map_marker, '    sget-object v12, Lcom/waze/map/b/ba;->a:Lcom/waze/map/b/ba;'))
+state_source = root / decoded / 'smali_classes5/com/waze/car_lib/e/r.smali'
 state = state_source.read_text()
 state_hook = '    invoke-static {p0}, Llocal/waze/cluster/ClusterHost;->onClusterState(Ljava/lang/Object;)V'
 assert state_hook not in state, 'Decoded cache must retain the original cluster state'
-state_marker = '    iput-object p3, p0, Lcom/waze/car_lib/d/r;->c:Lcom/waze/car_lib/q/by;'
+state_marker = '    iput-object p3, p0, Lcom/waze/car_lib/e/r;->c:Lcom/waze/car_lib/q/by;'
 assert state.count(state_marker) == 1, 'Pinned cluster state hook location not found'
-state_overlay = root / 'smali-overrides/classes5/com/waze/car_lib/d/r.smali'
+state_overlay = root / 'smali-overrides/classes5/com/waze/car_lib/e/r.smali'
 state_overlay.parent.mkdir(parents=True, exist_ok=True)
 state_overlay.write_text(state.replace(state_marker, state_marker + '\n\n' + state_hook))
 if not (root / 'car-api.jar').exists():
     run('curl', '-fL', 'https://dl.google.com/dl/android/maven2/androidx/car/app/app/1.7.0/app-1.7.0.aar', '-o', 'car-app.aar')
     with zipfile.ZipFile(root / 'car-app.aar') as z: (root / 'car-api.jar').write_bytes(z.read('classes.jar'))
 run('javac', '-cp', apktool, 'Assemble.java')
-run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', 'decoded/smali_classes6', 'classes6.dex', 'smali-overrides/classes6')
-run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', 'decoded/smali_classes5', 'classes5.dex', 'smali-overrides/classes5')
+run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', f'{decoded}/smali_classes6', 'classes6.dex', 'smali-overrides/classes6')
+run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', f'{decoded}/smali_classes5', 'classes5.dex', 'smali-overrides/classes5')
 (root / 'classes').mkdir(exist_ok=True)
 (root / 'helper-dex').mkdir(exist_ok=True)
 run('javac', '-source', '8', '-target', '8', '-Xlint:-options', '-cp', f'{android}:car-api.jar', '-d', 'classes', *sorted((root / 'src').rglob('*.java')))
+def manifest(data): return set_version_code(add_support_components(rename_application(data, 'Waze for BYD')), version_code)
 run(bt / 'd8', '--min-api', '29', '--lib', android, '--classpath', 'car-api.jar', '--output', 'helper-dex', *sorted((root / 'classes').rglob('*.class')))
 with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w') as dst:
     assert 'classes11.dex' not in src.namelist()
     for item in src.infolist():
         if item.filename.upper().startswith('META-INF/') and item.filename.upper().endswith(('.SF', '.RSA', '.DSA', '.EC', 'MANIFEST.MF')): continue
+        # Google Play's source stamp belongs to Google's signature and is invalid after re-signing.
+        if item.filename == 'stamp-cert-sha256': continue
         data = (root / item.filename).read_bytes() if item.filename in ('classes5.dex', 'classes6.dex') else src.read(item)
         if item.filename == 'AndroidManifest.xml':
-            data = add_support_components(rename_application(data, 'Waze for BYD'))
+            data = manifest(data)
         dst.writestr(item, data)
     # Reproducible output: the helper DEX takes the original manifest's ZIP date, not the file's build time.
     helper = zipfile.ZipInfo('classes11.dex', date_time=src.getinfo('AndroidManifest.xml').date_time)
@@ -76,7 +87,7 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
     helper.external_attr = src.getinfo('AndroidManifest.xml').external_attr
     dst.writestr(helper, (root / 'helper-dex/classes.dex').read_bytes())
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
-output = 'Waze-for-BYD-5.22.90.123-test.7.apk'
+output = 'Waze-for-BYD-5.26.0.0-test.8.apk'
 # Never replace a kept build (a released APK may exist only here); move it away first.
 assert not (root / output).exists() or os.environ.get('WAZE_ALLOW_OVERWRITE') == '1', \
     f'{output} already exists; move it away or set WAZE_ALLOW_OVERWRITE=1'
@@ -85,9 +96,9 @@ run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)
 with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / output) as dst:
     for name in src.namelist():
-        if name in ('classes5.dex', 'classes6.dex', 'AndroidManifest.xml') or name.upper().startswith('META-INF/'): continue
+        if name in ('classes5.dex', 'classes6.dex', 'AndroidManifest.xml', 'stamp-cert-sha256') or name.upper().startswith('META-INF/'): continue
         assert src.read(name) == dst.read(name), f'Unexpected modification: {name}'
-    assert dst.read('AndroidManifest.xml') == add_support_components(rename_application(src.read('AndroidManifest.xml'), 'Waze for BYD'))
+    assert dst.read('AndroidManifest.xml') == manifest(src.read('AndroidManifest.xml'))
 checksum = hashlib.sha256((root / output).read_bytes()).hexdigest()
 (root / (output + '.sha256')).write_text(f'{checksum}  {output}\n')
 print('Payload integrity verified; SHA-256', checksum)

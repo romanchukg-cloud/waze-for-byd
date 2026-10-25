@@ -107,7 +107,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         displays.registerDisplayListener(this, main);
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
-        Log.i(TAG, "installed test.7; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+        Log.i(TAG, "installed test.8; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
     }
     private void settingsChanged(String key) {
         if (ClusterSettings.POINTER_VERTICAL.equals(key) || ClusterSettings.POINTER_HORIZONTAL.equals(key)) { refreshArea(); return; }
@@ -222,8 +222,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         }
     }
     /**
-     * Diagnostic for the zoom test (names pinned to Waze 5.22.90.123): does Waze's cluster surface callback
-     * have a gesture controller (car_lib.h.a.p.c, a car_lib.h.a.j) that onScale can drive?
+     * Diagnostic for the zoom test (names pinned to Waze 5.26.0.0): does Waze's cluster surface callback
+     * have a gesture controller (car_lib.i.a.p.c, a car_lib.i.a.k) that onScale can drive?
      */
     private static String gestureProbe(Object stub) {
         try {
@@ -236,8 +236,8 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
             StringBuilder flags = new StringBuilder();
             for (Object listener : (java.util.List<?>) list.get(fanOut)) {
                 listeners++;
-                if (!"com.waze.car_lib.h.a.n".equals(listener.getClass().getName())) continue;
-                java.lang.reflect.Field variant = listener.getClass().getDeclaredField("b"), owner = listener.getClass().getDeclaredField("a");
+                if (!"com.waze.car_lib.i.a.n".equals(listener.getClass().getName())) continue;
+                java.lang.reflect.Field variant = listener.getClass().getDeclaredField("$cid"), owner = listener.getClass().getDeclaredField("a");
                 variant.setAccessible(true); owner.setAccessible(true);
                 if (variant.getInt(listener) != 0) continue;
                 Object presenter = owner.get(listener);
