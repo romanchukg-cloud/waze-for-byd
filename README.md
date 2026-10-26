@@ -2,7 +2,8 @@
 
 Experimental built-in instrument-cluster host for Waze on BYD DiLink.
 
-The project adds a local AndroidX Car App host to Waze 5.22.90.123. It opens
+The project adds a local AndroidX Car App host to Waze 5.26.0.0 (test.8; earlier
+test builds used Waze 5.22.90.123). It opens
 Waze's own cluster session on a display whose name contains
 `XDJAScreenProjection`. The application label is **Waze for BYD**; the package
 remains `com.waze`.
@@ -17,10 +18,10 @@ inputs and are not included.
 Prebuilt APKs are no longer published. This repository provides the patch
 source and the build tools; build an APK yourself from your own copy of the
 pinned Waze input APK (see [Build](#build)). The
-[release notes](docs/releases/v5.22.90.123-byd.test.7.md) describe what each
+[release notes](docs/releases/v5.26.0.0-byd.test.8.md) describe what each
 test build changed and how it was validated.
 
-**Requirements for a built APK:** Android 10+ and an ARM64/ARMv7 device. It keeps
+**Requirements for a built APK:** Android 10+ and an ARM64 device. It keeps
 package `com.waze`, so it cannot update official Waze or a build signed with a
 different key. See [installation requirements and troubleshooting](docs/installation.md).
 
@@ -133,12 +134,22 @@ Steering-wheel zoom remains [research only](docs/wheel-zoom-research.md).
 ### Requirements and command
 
 Requires Python 3, JDK 17+, Android SDK platform 35, build-tools 36.0.0,
-apktool 2.11.1 and network access to Google Maven on the first build.
+apktool 2.11.1, APKEditor 1.4.9 and network access to Google Maven on the first build.
+
+**Input.** Waze 5.26.0.0 (versionCode 1030742) is published only as a split bundle.
+Use the arm64-v8a, Android 10+ bundle
+`com.waze_5.26.0.0-1030742_1arch_2dpi_24lang_115dd2209a60866ddb880cd03246f5ac_apkmirror.com.apkm`
+(SHA-256 `e44c3eb2a974b689950c89fe038aea1758b234886bf113032e7d211329532ab1`, signed with
+Google's Waze certificate). Merge it into one APK:
+
+```sh
+java -jar APKEditor-1.4.9.jar m -i com.waze_5.26.0.0-1030742_1arch_2dpi_24lang_115dd2209a60866ddb880cd03246f5ac_apkmirror.com.apkm -o waze-5-26-0-0.apk
+```
 
 ```sh
 export ANDROID_SDK_ROOT=/path/to/android/sdk
 export APKTOOL_JAR=/path/to/apktool_2.11.1.jar
-export WAZE_INPUT_APK=/path/to/waze-5-22-90-123.apk
+export WAZE_INPUT_APK=/path/to/waze-5-26-0-0.apk
 export WAZE_KEYSTORE=/path/to/existing/test.keystore
 export WAZE_KEY_ALIAS=cluster-test
 read -r -s WAZE_KEYSTORE_PASSWORD
@@ -147,10 +158,11 @@ python3 patch/build.py
 ```
 
 For a distinct key password, set `WAZE_KEY_PASSWORD` as well. The script refuses
-to create a new signing key. The input APK must have SHA-256
-`a45040acce4dbf79c1445a76415b8e3457dd8a720d373f81c8a98c5529f08c80`.
+to create a new signing key. The merged input APK must have SHA-256
+`66a367a5a55b9d808fcb6e613f96adc6148709fa563666810a90b9daf849bb49`; the merge is
+reproducible.
 
-Output: `patch/Waze-for-BYD-5.22.90.123-test.7.apk` and its SHA-256 file. The build
+Output: `patch/Waze-for-BYD-5.26.0.0-test.8.apk` and its SHA-256 file. The build
 refuses to overwrite an existing output APK; move a kept APK away first, or set
 `WAZE_ALLOW_OVERWRITE=1` deliberately. The same inputs and key produce the same APK
 byte for byte: the helper DEX uses a fixed ZIP date.
@@ -162,8 +174,9 @@ adb shell cmd package compile -m verify -f com.waze
 ```
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
 original payload entries except `classes5.dex`, `classes6.dex`,
-`AndroidManifest.xml`, and obsolete signature entries. Manifest changes are the
-application label, two diagnostics components, one package-visibility query
+`AndroidManifest.xml`, obsolete signature entries and Google Play's source stamp
+(`stamp-cert-sha256`), which belongs to Google's signature. Manifest changes are the
+versionCode, the application label, two diagnostics components, one package-visibility query
 for the gated HUD receiver and a `PACKAGE_USAGE_STATS` declaration for the
 optional cluster-theme follower. It adds the host as
 `classes11.dex`. DEX 5 contains one read-only state observer call; DEX 6 contains
@@ -173,7 +186,11 @@ Resources and native libraries remain unchanged.
 ## Updates and device checks
 
 Keep the exact signing key used for the installed modified APK. The package
-and versionCode (`1030811`) remain unchanged. Update compatibility also depends
+stays `com.waze`. The versionCode is Waze's own plus 1,000,000 (`2030742` for
+5.26.0.0), so test.8 installs over the 5.22.90.123-based builds (`1030811`), and
+Waze re-extracts its resources, which it does only when the versionCode grows. A
+5.22.90.123-based build cannot be installed over test.8 any more without a higher
+versionCode. Update compatibility also depends
 on the installed version and its signing certificate: verify those on the target
 device before installation. An official Waze installation uses a different
 certificate. Do not uninstall an existing app as part of this build workflow.
