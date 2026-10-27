@@ -107,7 +107,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         displays.registerDisplayListener(this, main);
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
-        Log.i(TAG, "installed test.8; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+        Log.i(TAG, "installed test.9; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
     }
     private void settingsChanged(String key) {
         if (ClusterSettings.POINTER_VERTICAL.equals(key) || ClusterSettings.POINTER_HORIZONTAL.equals(key)) { refreshArea(); return; }
@@ -201,9 +201,13 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         ClusterStatus.surface = view.getWidth() + "x" + view.getHeight() + ", visible area " + next.toShortString();
         Log.i(TAG, "visible area " + next + " (pointer offset)");
     }
+    private static final int ZOOM_STEPS = 6;
     /**
      * Test of cluster zoom through Waze's own surface callback (AndroidX onScale), the same path a car
-     * host uses for pinch gestures. Returns a short result for the panel. Map content cannot be checked off the car.
+     * host uses for pinch gestures. Waze turns a run of onScale calls into one pinch: the first call puts
+     * both fingers down, each later call moves them by its factor, and the pinch ends 400 ms after the last
+     * call. So the test sends a neutral first step and then six steps 40 ms apart (about 2x in total).
+     * Returns a short result for the panel. Map content cannot be checked off the car.
      */
     public static String zoom(boolean in) {
         ClusterHost host = instance;
@@ -211,15 +215,17 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         final ISurfaceCallback receiver = host.callback;
         if (receiver == null || host.delivered == null || host.view == null) return "The cluster map is not shown yet.";
         Rect area = host.area(host.view.getWidth(), host.view.getHeight(), host.plan);
-        try {
-            receiver.onScale(area.exactCenterX(), area.exactCenterY(), in ? 1.25f : 0.8f);
-            String probe = gestureProbe(receiver);
-            Log.i(TAG, "cluster zoom " + (in ? "in" : "out") + " sent at " + area.centerX() + "," + area.centerY() + "; " + probe);
-            return "Zoom " + (in ? "in" : "out") + " sent. " + probe;
-        } catch (Exception e) {
-            Log.e(TAG, "cluster zoom", e);
-            return "Zoom failed: " + e.getClass().getSimpleName() + ".";
+        final float x = area.exactCenterX(), y = area.exactCenterY(), step = in ? 1.12f : 1 / 1.12f;
+        for (int i = 0; i <= ZOOM_STEPS; i++) {
+            final float factor = i == 0 ? 1f : step;
+            host.main.postDelayed(() -> {
+                try { receiver.onScale(x, y, factor); }
+                catch (Exception e) { Log.e(TAG, "cluster zoom step", e); }
+            }, i * 40L);
         }
+        String probe = gestureProbe(receiver);
+        Log.i(TAG, "cluster zoom " + (in ? "in" : "out") + " sent at " + area.centerX() + "," + area.centerY() + " in " + ZOOM_STEPS + " steps; " + probe);
+        return "Zoom " + (in ? "in" : "out") + " sent. " + probe;
     }
     /**
      * Diagnostic for the zoom test (names pinned to Waze 5.26.0.0): does Waze's cluster surface callback
