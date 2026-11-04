@@ -64,6 +64,14 @@ state_overlay.write_text(state.replace(state_marker, state_marker + '\n\n' + sta
 if not (root / 'car-api.jar').exists():
     run('curl', '-fL', 'https://dl.google.com/dl/android/maven2/androidx/car/app/app/1.7.0/app-1.7.0.aar', '-o', 'car-app.aar')
     with zipfile.ZipFile(root / 'car-app.aar') as z: (root / 'car-api.jar').write_bytes(z.read('classes.jar'))
+# Observe the lanes Waze's engine reports, to find out whether they can reach the HUD.
+lanes_source = root / decoded / 'smali_classes6/com/waze/navigate/NavigationInfoNativeManager.smali'
+lanes = lanes_source.read_text()
+lanes_marker = '.method public static synthetic b(Lcom/waze/navigate/NavigationInfoNativeManager;Lcom/waze/jni/protos/navigate/NavigationLaneList;)Lg/ab;\n    .locals 1\n'
+assert lanes.count(lanes_marker) == 1, 'Pinned lanes hook location not found'
+lanes_overlay = root / 'smali-overrides/classes6/com/waze/navigate/NavigationInfoNativeManager.smali'
+lanes_overlay.parent.mkdir(parents=True, exist_ok=True)
+lanes_overlay.write_text(lanes.replace(lanes_marker, lanes_marker + '\n    invoke-static {p1}, Llocal/waze/cluster/ClusterHost;->onLanes(Ljava/lang/Object;)V\n'))
 run('javac', '-cp', apktool, 'Assemble.java')
 run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', f'{decoded}/smali_classes6', 'classes6.dex', 'smali-overrides/classes6')
 run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', f'{decoded}/smali_classes5', 'classes5.dex', 'smali-overrides/classes5')

@@ -77,6 +77,8 @@ public final class WheelKeyTests {
         check(recent.describe(java.util.TimeZone.getTimeZone("UTC")).startsWith("No keys"), "empty diagnostic");
         recent.add(0, key(WheelKeyPolicy.DOWN, MODE, 1), "service", true);
         check(recent.describe(java.util.TimeZone.getTimeZone("UTC")).equals("00:00:00  key 305/300  simulate-keys  service, used"), "diagnostic line");
+        check(WazeLanes.format(new int[]{0, 1, 2}, new int[][]{{-45, 0}, {0}, {45}}, new boolean[][]{{true, false}, {true}, {false}}).equals("3 lanes: 0[-45*,0] 1[0*] 2[45]"), "lane diagnostic");
+        check(WazeLanes.format(new int[]{4}, new int[][]{{}}, new boolean[][]{{}}).equals("1 lane: 4[]"), "lane without directions");
         System.out.println("WheelKeyTests: " + count + " checks passed");
     }
 }
