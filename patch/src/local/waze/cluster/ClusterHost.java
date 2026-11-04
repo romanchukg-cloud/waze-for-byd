@@ -74,7 +74,10 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         } catch (Throwable e) { Log.e(TAG, "install", e); }
     }
     /** Pinned hook: Waze's engine reports its lanes. Diagnostic only, and it must never throw into Waze. */
-    public static void onLanes(Object list) { WazeLanes.onLanes(list); }
+    public static void onLanes(Object list) {
+        ClusterHost host = instance;
+        if (host != null) WazeLanes.onLanes(host.app, list);
+    }
     public static void onClusterState(Object state) {
         // Called from a pinned observer hook after the immutable state's fields
         // are initialized. Never throw back into Waze's navigation pipeline.

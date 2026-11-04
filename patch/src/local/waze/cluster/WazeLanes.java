@@ -7,27 +7,45 @@ import android.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Diagnostic for lane guidance: records what Waze knows, to decide whether it can reach the HUD. Nothing is
- * sent to the car. Names pinned to Waze 5.26.0.0. A failure here must never affect Waze or the guidance.
+ * sent to the car. The log and images stay in Waze's own external folder (Android/data/com.waze/files/lanes),
+ * with no road names or positions, so a tester can collect them after a drive without a laptop in the car.
+ * Names pinned to Waze 5.26.0.0. A failure here must never affect Waze or the guidance.
  */
 final class WazeLanes {
     private static final String TAG = "WazeLanes";
     private static final int MAX_IMAGES = 8;
+    private static final long MAX_LOG = 256 * 1024;
+    private static final ExecutorService writer = Executors.newSingleThreadExecutor(r -> new Thread(r, "WazeLanes"));
     private static String lastLanes = "";
     private static Bitmap lastImage;
     private static int images;
     private WazeLanes() { }
 
     /** Called from a pinned hook when Waze's engine reports its lanes; null when there are none. */
-    static synchronized void onLanes(Object list) {
+    static synchronized void onLanes(Context c, Object list) {
         try {
             String now = list == null ? "none" : describe(list);
             if (now.equals(lastLanes)) return;
             lastLanes = now;
-            Log.i(TAG, "engine lanes: " + now);
-        } catch (Throwable e) { Log.w(TAG, "engine lanes unreadable: " + e); }
+            note(c, "engine lanes: " + now);
+        } catch (Throwable e) { note(c, "engine lanes unreadable: " + e); }
+    }
+    private static void note(Context c, String line) {
+        Log.i(TAG, line);
+        final File folder = c.getExternalFilesDir("lanes");
+        if (folder == null) return;
+        final String stamped = new java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.US).format(new java.util.Date()) + "  " + line + "\n";
+        writer.execute(() -> {
+            File log = new File(folder, "lanes-log.txt");
+            if (log.length() >= MAX_LOG) return;
+            try (FileOutputStream out = new FileOutputStream(log, true)) { out.write(stamped.getBytes(java.nio.charset.StandardCharsets.UTF_8)); }
+            catch (Throwable e) { Log.w(TAG, "lanes log not saved: " + e); }
+        });
     }
     private static String describe(Object list) throws ReflectiveOperationException {
         List<?> lanes = (List<?>) list.getClass().getMethod("getNavigationLaneList").invoke(list);
@@ -66,17 +84,17 @@ final class WazeLanes {
     static synchronized void onImage(Context c, Bitmap image) {
         if (image == lastImage) return;
         lastImage = image;
-        if (image == null) { Log.i(TAG, "lanes image: none"); return; }
-        Log.i(TAG, "lanes image: " + image.getWidth() + "x" + image.getHeight());
+        if (image == null) { note(c, "lanes image: none"); return; }
+        note(c, "lanes image " + images + ": " + image.getWidth() + "x" + image.getHeight());
         if (images >= MAX_IMAGES || image.isRecycled()) return;
         final Bitmap copy = image.copy(image.getConfig() == null ? Bitmap.Config.ARGB_8888 : image.getConfig(), false);
         final File folder = c.getExternalFilesDir("lanes");
         final int number = images++;
         if (copy == null || folder == null) return;
-        new Thread(() -> {
+        writer.execute(() -> {
             try (FileOutputStream out = new FileOutputStream(new File(folder, "lanes-" + number + ".png"))) {
                 copy.compress(Bitmap.CompressFormat.PNG, 100, out);
             } catch (Throwable e) { Log.w(TAG, "lanes image not saved: " + e); }
-        }, "WazeLanes").start();
+        });
     }
 }
