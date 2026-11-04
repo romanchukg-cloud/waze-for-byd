@@ -8,7 +8,7 @@ PACKAGE_USAGE_STATS is only declared; the owner grants Usage Access explicitly.
 import struct
 
 
-def add_support_components(data):
+def add_support_components(data, wheel_resource):
     u16 = lambda b, p: struct.unpack_from('<H', b, p)[0]
     u32 = lambda b, p: struct.unpack_from('<I', b, p)[0]
     assert u16(data, 0) == 3 and u32(data, 4) == len(data)
@@ -55,24 +55,31 @@ def add_support_components(data):
     name = append('name', 0x01010003)
     exported = append('exported', 0x01010010)
     permission = append('permission', 0x01010006)
+    resource = append('resource', 0x01010025)
 
     def attr(key, value, kind=3):
         return struct.pack('<IIIHBBI', ns, key, value if kind == 3 else 0xffffffff,
                            8, 0, kind, value)
 
-    def node(tag, attrs):
+    def node(tag, attrs, children=b''):
         idx = append(tag)
         size = 36 + 20 * len(attrs)
         begin = struct.pack('<HHIII', 0x102, 16, size, 0, 0xffffffff)
         begin += struct.pack('<II6H', 0xffffffff, idx, 20, 20, len(attrs), 0, 0, 0)
         end = struct.pack('<HHIIIII', 0x103, 16, 24, 0, 0xffffffff, 0xffffffff, idx)
-        return begin + b''.join(attrs) + end
+        return begin + b''.join(attrs) + children + end
 
     nodes = node('activity', [attr(name, append('local.waze.diagnostics.SupportActivity')),
                               attr(exported, 0, 0x12)])
     nodes += node('service', [attr(name, append('local.waze.diagnostics.DiagnosticsJob')),
                              attr(permission, append('android.permission.BIND_JOB_SERVICE')),
                              attr(exported, 0xffffffff, 0x12)])
+    # Key-only accessibility service for steering-wheel zoom; the owner enables it, never the install.
+    nodes += node('service', [attr(name, append('local.waze.cluster.WheelKeyService')),
+                              attr(permission, append('android.permission.BIND_ACCESSIBILITY_SERVICE')),
+                              attr(exported, 0xffffffff, 0x12)],
+                  node('intent-filter', [], node('action', [attr(name, append('android.accessibilityservice.AccessibilityService'))]))
+                  + node('meta-data', [attr(name, append('android.accessibilityservice')), attr(resource, wheel_resource, 1)]))
     # Android 11+ package visibility: query exactly the gated HUD receiver package.
     query_child = node('package', [attr(name, append('com.byd.clusterdebug'))])
     queries_idx = next((i for i,c in enumerate(chunks)

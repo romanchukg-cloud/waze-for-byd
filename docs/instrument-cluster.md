@@ -77,8 +77,8 @@ resolution (2560 × 1440, 320 dpi). See the
     shortened to end the margin above the navigation bar.
   - Changes apply immediately.
 - **Pointer horizontal offset (- left, + right).** −25 % to +25 % of the cluster width.
-- **Cluster zoom test.** Zoom out and Zoom in buttons send a pinch to Waze's cluster
-  map. Whether the cluster really zooms still needs checking in a car.
+- **Cluster zoom.** Zoom out and Zoom in buttons send a pinch to Waze's cluster map.
+  Confirmed in a car with test.9. See also [steering-wheel zoom](wheel-zoom-research.md).
 
 ## Validation
 

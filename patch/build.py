@@ -4,6 +4,7 @@
 import hashlib, os, pathlib, shutil, subprocess, zipfile
 from manifest_label import rename_application, set_version_code
 from manifest_support import add_support_components
+from resource_table import add_xml_resource
 root = pathlib.Path(__file__).resolve().parent
 sdk = pathlib.Path(os.environ.get('ANDROID_SDK_ROOT', pathlib.Path.home() / 'Library/Android/sdk'))
 bt = sdk / 'build-tools/36.0.0'
@@ -28,7 +29,7 @@ version_code = 1030742 + 1000000
 def run(*args): subprocess.run([str(x) for x in args], cwd=root, check=True)
 assert hashlib.sha256(original.read_bytes()).hexdigest() == expected, 'Unexpected input APK'
 if not (root / decoded).exists(): run('java', '-jar', apktool, 'd', '-r', original, '-o', decoded)
-for generated in ('smali-overrides', 'classes', 'helper-dex'):
+for generated in ('smali-overrides', 'classes', 'helper-dex', 'wheel-res'):
     directory = root / generated
     assert not directory.is_symlink(), f'Refusing to clean a symlink: {directory}'
     if directory.exists(): shutil.rmtree(directory)
@@ -69,7 +70,16 @@ run('java', '-Xmx2g', '-cp', f'.:{apktool}', 'Assemble', f'{decoded}/smali_class
 (root / 'classes').mkdir(exist_ok=True)
 (root / 'helper-dex').mkdir(exist_ok=True)
 run('javac', '-source', '8', '-target', '8', '-Xlint:-options', '-cp', f'{android}:car-api.jar', '-d', 'classes', *sorted((root / 'src').rglob('*.java')))
-def manifest(data): return set_version_code(add_support_components(rename_application(data, 'Waze for BYD')), version_code)
+# The accessibility service's metadata: compile it with aapt2 and add only its entry to Waze's resource table.
+wheel_key, wheel_path = 'local_wheel_key_service', 'res/local_wheel_key_service.xml'
+(root / 'wheel-res').mkdir()
+(root / 'wheel-res/AndroidManifest.xml').write_text('<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.wheel"/>')
+run(bt / 'aapt2', 'compile', '-o', 'wheel-res', f'res/xml/{wheel_key}.xml')
+run(bt / 'aapt2', 'link', '-o', 'wheel-res/out.apk', '-I', android, '--min-sdk-version', '29', '--target-sdk-version', '35',
+    '--manifest', 'wheel-res/AndroidManifest.xml', f'wheel-res/xml_{wheel_key}.xml.flat')
+with zipfile.ZipFile(root / 'wheel-res/out.apk') as z: wheel_xml = z.read(f'res/xml/{wheel_key}.xml')
+with zipfile.ZipFile(original) as z: table, wheel_id = add_xml_resource(z.read('resources.arsc'), wheel_key, wheel_path)
+def manifest(data): return set_version_code(add_support_components(rename_application(data, 'Waze for BYD'), wheel_id), version_code)
 run(bt / 'd8', '--min-api', '29', '--lib', android, '--classpath', 'car-api.jar', '--output', 'helper-dex', *sorted((root / 'classes').rglob('*.class')))
 with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w') as dst:
     assert 'classes11.dex' not in src.namelist()
@@ -78,6 +88,7 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
         # Google Play's source stamp belongs to Google's signature and is invalid after re-signing.
         if item.filename == 'stamp-cert-sha256': continue
         data = (root / item.filename).read_bytes() if item.filename in ('classes5.dex', 'classes6.dex') else src.read(item)
+        if item.filename == 'resources.arsc': data = table
         if item.filename == 'AndroidManifest.xml':
             data = manifest(data)
         dst.writestr(item, data)
@@ -86,8 +97,12 @@ with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / 'unsigned.apk', 'w
     helper.compress_type = zipfile.ZIP_DEFLATED
     helper.external_attr = src.getinfo('AndroidManifest.xml').external_attr
     dst.writestr(helper, (root / 'helper-dex/classes.dex').read_bytes())
+    wheel_entry = zipfile.ZipInfo(wheel_path, date_time=src.getinfo('AndroidManifest.xml').date_time)
+    wheel_entry.compress_type = zipfile.ZIP_DEFLATED
+    wheel_entry.external_attr = src.getinfo('AndroidManifest.xml').external_attr
+    dst.writestr(wheel_entry, wheel_xml)
 run(bt / 'zipalign', '-f', '-P', '16', '4', 'unsigned.apk', 'aligned.apk')
-output = 'Waze-for-BYD-5.26.0.0-test.9.apk'
+output = 'Waze-for-BYD-5.26.0.0-test.10.apk'
 # Never replace a kept build (a released APK may exist only here); move it away first.
 assert not (root / output).exists() or os.environ.get('WAZE_ALLOW_OVERWRITE') == '1', \
     f'{output} already exists; move it away or set WAZE_ALLOW_OVERWRITE=1'
@@ -96,9 +111,15 @@ run(bt / 'apksigner', 'verify', '--verbose', '--print-certs', output)
 run(bt / 'zipalign', '-c', '-P', '16', '4', output)
 with zipfile.ZipFile(original) as src, zipfile.ZipFile(root / output) as dst:
     for name in src.namelist():
-        if name in ('classes5.dex', 'classes6.dex', 'AndroidManifest.xml', 'stamp-cert-sha256') or name.upper().startswith('META-INF/'): continue
+        if name in ('classes5.dex', 'classes6.dex', 'AndroidManifest.xml', 'resources.arsc', 'stamp-cert-sha256') or name.upper().startswith('META-INF/'): continue
         assert src.read(name) == dst.read(name), f'Unexpected modification: {name}'
     assert dst.read('AndroidManifest.xml') == manifest(src.read('AndroidManifest.xml'))
+    assert dst.read('resources.arsc') == table and dst.read(wheel_path) == wheel_xml
+# Android's own tools must read the edited table and see the new entry with the ID the manifest uses.
+listing = subprocess.run([str(bt / 'aapt2'), 'dump', 'resources', str(root / output)], check=True, capture_output=True, text=True).stdout
+assert f'resource 0x{wheel_id:08x} xml/{wheel_key}' in listing, 'Wheel resource missing from the table'
+tree = subprocess.run([str(bt / 'aapt2'), 'dump', 'xmltree', '--file', wheel_path, str(root / output)], check=True, capture_output=True, text=True).stdout
+assert 'canRequestFilterKeyEvents' in tree, 'Wheel service metadata is unreadable'
 checksum = hashlib.sha256((root / output).read_bytes()).hexdigest()
 (root / (output + '.sha256')).write_text(f'{checksum}  {output}\n')
 print('Payload integrity verified; SHA-256', checksum)

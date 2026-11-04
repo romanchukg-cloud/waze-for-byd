@@ -1,8 +1,36 @@
-# Steering-wheel map zoom: research
+# Steering-wheel map zoom
 
-Status on 2026-10-13: source inspection only. Steering-wheel zoom is **not
-implemented or verified in Waze for BYD**. The published test.3 APK does not
-include a wheel-key accessibility service.
+Status on 2026-11-04: implemented in test.10 and not yet checked from the wheel. Zoom through
+the panel buttons was confirmed on a BYD Tang (DiLink 5.0) with test.9.
+
+## How it works
+
+Turn on **Steering-wheel zoom** in the Instrument cluster panel. The custom button then
+switches zoom mode on and off. In zoom mode volume + and - zoom the cluster map. Outside
+zoom mode, during a call and while no cluster map is shown, the keys keep their normal actions.
+
+- **Default buttons:** those measured on a BYD Tang: custom 305/300, volume up 291/115 and
+  volume down 292/114 on `simulate-keys`. On another wheel, use the **Assign** buttons in the
+  panel. **Recent keys** shows what arrives.
+- **Two ways in:**
+  - a key-only accessibility service, which receives the keys in any app;
+  - the focused Waze window, which needs no setup. Whether BYD passes the keys to it is
+    still to be checked; the log tag `WazeWheel` shows the source of each key.
+- **Key service metadata:** Android reads the filter capability only from an XML resource, so
+  the build adds one entry to Waze's resource table and leaves all other resources untouched.
+- **Cluster start:** the enabled service keeps the Waze process running. The cluster map then
+  waits until a Waze window has been opened, so it does not take the cluster from another
+  navigation app.
+
+## Known limits
+
+- BYD has no accessibility settings page, so the service must be enabled once over ADB.
+- According to Maps Automotive for BYD, the service stops being connected after the car
+  force-stops the app when it is switched off. This is not yet checked for Waze.
+- The policy is adapted from Maps Automotive for BYD (GPL-3.0-only).
+
+The research below dates from 2026-10-13 and from Waze 5.22.90.123, so its obfuscated names
+are out of date.
 
 ## What renders the cluster map
 

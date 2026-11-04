@@ -8,13 +8,13 @@ import android.content.SharedPreferences;
 public final class ClusterSettings {
     static final String PREFS = "local_cluster_settings", LEGACY_PREFS = "waze_for_byd_cluster";
     public static final String MAP_ENABLED = "map_enabled", VEHICLE_GUIDANCE = "vehicle_guidance",
-            HUD_UNTESTED = "hud_untested_firmware", POINTER_VERTICAL = "pointer_vertical", POINTER_HORIZONTAL = "pointer_horizontal", PANEL_FULLSCREEN = "panel_fullscreen", EDGE_MARGIN = "edge_margin",
+            HUD_UNTESTED = "hud_untested_firmware", POINTER_VERTICAL = "pointer_vertical", POINTER_HORIZONTAL = "pointer_horizontal", PANEL_FULLSCREEN = "panel_fullscreen", EDGE_MARGIN = "edge_margin", WHEEL_ZOOM = "wheel_zoom",
             PROFILE = "dilink51_profile", MODE = "dilink51_theme", CONTRAST = "dilink51_background";
     private static boolean migrated;
     private ClusterSettings() { }
 
     public static final class State {
-        public final boolean mapEnabled, vehicleGuidance, hudUntested, panelFullscreen;
+        public final boolean mapEnabled, vehicleGuidance, hudUntested, panelFullscreen, wheelZoom;
         public final int pointerVertical, pointerHorizontal, edgeMargin;
         public final DiLink51Layout.Profile profile;
         public final DiLink51Layout.Mode mode;
@@ -24,6 +24,7 @@ public final class ClusterSettings {
             vehicleGuidance = p.getBoolean(VEHICLE_GUIDANCE, true);
             hudUntested = p.getBoolean(HUD_UNTESTED, false);
             panelFullscreen = p.getBoolean(PANEL_FULLSCREEN, false);
+            wheelZoom = p.getBoolean(WHEEL_ZOOM, false);
             // Waze places its car marker from the visible area; 0 keeps the layout verified in test.5.
             pointerVertical = Math.max(-25, Math.min(25, p.getInt(POINTER_VERTICAL, 0)));
             pointerHorizontal = Math.max(-25, Math.min(25, p.getInt(POINTER_HORIZONTAL, 0)));
@@ -51,6 +52,25 @@ public final class ClusterSettings {
         return p;
     }
     public static State state(Context c) { return new State(prefs(c)); }
+    static WheelKeyPolicy.Bindings wheelBindings(Context c) {
+        SharedPreferences p = prefs(c);
+        WheelKeyPolicy.Bindings tang = WheelKeyPolicy.Bindings.tang();
+        try { return new WheelKeyPolicy.Bindings(binding(p, "wheel_mode", tang.mode), binding(p, "wheel_in", tang.in), binding(p, "wheel_out", tang.out)); }
+        catch (IllegalArgumentException stored) { return tang; }
+    }
+    static void saveWheelBindings(Context c, WheelKeyPolicy.Bindings b) {
+        SharedPreferences.Editor e = prefs(c).edit();
+        save(e, "wheel_mode", b.mode);
+        save(e, "wheel_in", b.in);
+        save(e, "wheel_out", b.out);
+        e.apply();
+    }
+    private static WheelKeyPolicy.Binding binding(SharedPreferences p, String role, WheelKeyPolicy.Binding fallback) {
+        return new WheelKeyPolicy.Binding(p.getInt(role + "_code", fallback.code), p.getInt(role + "_scan", fallback.scan), p.getString(role + "_device", fallback.device));
+    }
+    private static void save(SharedPreferences.Editor e, String role, WheelKeyPolicy.Binding b) {
+        e.putInt(role + "_code", b.code).putInt(role + "_scan", b.scan).putString(role + "_device", b.device);
+    }
     public static DiLink51Layout.Profile profile(Context c) { return state(c).profile; }
     public static DiLink51Layout.Mode mode(Context c) { return state(c).mode; }
     public static DiLink51Layout.Contrast contrast(Context c) { return state(c).contrast; }

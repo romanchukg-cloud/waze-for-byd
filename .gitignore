@@ -32,6 +32,7 @@ __pycache__/
 .DS_Store
 /patch/decoded
 /patch/decoded-*
+/patch/wheel-res/
 /patch/classes/
 /patch/helper-dex/
 /patch/test-out/

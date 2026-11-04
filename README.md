@@ -128,7 +128,7 @@ sending off. A limited technical summary may appear in public GitHub Issues.
 
 The new DiLink 5.1 path requires an exact known firmware/receiver match and has not
 been physically verified in Waze. The earlier Android 12 AMap path remains available.
-Steering-wheel zoom remains [research only](docs/wheel-zoom-research.md).
+[Steering-wheel zoom](docs/wheel-zoom-research.md) is implemented in test.10 and not yet checked from the wheel.
 
 
 ### Requirements and command
@@ -162,7 +162,7 @@ to create a new signing key. The merged input APK must have SHA-256
 `66a367a5a55b9d808fcb6e613f96adc6148709fa563666810a90b9daf849bb49`; the merge is
 reproducible.
 
-Output: `patch/Waze-for-BYD-5.26.0.0-test.8.apk` and its SHA-256 file. The build
+Output: `patch/Waze-for-BYD-5.26.0.0-test.10.apk` and its SHA-256 file. The build
 refuses to overwrite an existing output APK; move a kept APK away first, or set
 `WAZE_ALLOW_OVERWRITE=1` deliberately. The same inputs and key produce the same APK
 byte for byte: the helper DEX uses a fixed ZIP date.
@@ -174,7 +174,7 @@ adb shell cmd package compile -m verify -f com.waze
 ```
 The build verifies the signature, 16 KiB ZIP alignment and byte equality of all
 original payload entries except `classes5.dex`, `classes6.dex`,
-`AndroidManifest.xml`, obsolete signature entries and Google Play's source stamp
+`AndroidManifest.xml`, `resources.arsc` (one added xml entry for the key service), obsolete signature entries and Google Play's source stamp
 (`stamp-cert-sha256`), which belongs to Google's signature. Manifest changes are the
 versionCode, the application label, two diagnostics components, one package-visibility query
 for the gated HUD receiver and a `PACKAGE_USAGE_STATS` declaration for the
@@ -208,7 +208,9 @@ when testing. Diagnostic tag: `WazeClusterTest`.
 - `patch/src/local/waze/cluster/BydGuidanceBridge.java`: stock adapter broadcast output.
 - `patch/build.py`: pinned APK patch, assembly, signing and integrity checks.
 - `patch/manifest_label.py`: targeted binary manifest label change.
-- `patch/manifest_support.py`: append diagnostics components and HUD package visibility.
+- `patch/manifest_support.py`: append diagnostics components, the key service and HUD package visibility.
+- `patch/resource_table.py`: add the key service's XML entry to the resource table.
+- `patch/src/local/waze/cluster/WheelKey*.java`: steering-wheel zoom.
 - `patch/src/local/waze/diagnostics/`: private structured recording, consent UI, queue, manual v1 and capability-gated automatic v2 client.
 - `patch/src/local/waze/cluster/StandaloneHud*.java`: gated DiLink 5.1 packets and lifecycle.
 - `patch/src/local/waze/cluster/DiLink51Layout.java`, `ClusterActivityState.java`,

@@ -33,19 +33,31 @@ public final class ClusterPanel {
         preferences.registerOnSharedPreferenceChangeListener(changes);
         app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             public void onActivityResumed(Activity a) {
+                watchKeys(a);
                 if (!MAIN.equals(a.getClass().getName())) return;
                 resumed = new java.lang.ref.WeakReference<>(a);
                 applyEdgeMargin(a);
                 menuMargin(a);
                 a.getWindow().getDecorView().post(() -> attach(a));
             }
-            public void onActivityCreated(Activity a, Bundle b) { }
+            public void onActivityCreated(Activity a, Bundle b) { ClusterHost.activitySeen(); }
             public void onActivityStarted(Activity a) { }
             public void onActivityPaused(Activity a) { }
             public void onActivityStopped(Activity a) { }
             public void onActivitySaveInstanceState(Activity a, Bundle b) { }
             public void onActivityDestroyed(Activity a) { }
         });
+    }
+    /** Wheel keys also reach the focused Waze window, which works without the key service if BYD passes them on. */
+    private static void watchKeys(Activity activity) {
+        Window window = activity.getWindow();
+        Window.Callback original = window.getCallback();
+        if (original == null || java.lang.reflect.Proxy.isProxyClass(original.getClass())) return;
+        window.setCallback((Window.Callback) java.lang.reflect.Proxy.newProxyInstance(Window.Callback.class.getClassLoader(), new Class<?>[]{Window.Callback.class}, (proxy, method, args) -> {
+            if ("dispatchKeyEvent".equals(method.getName()) && WheelKeys.handle(activity, (KeyEvent) args[0], "window")) return true;
+            try { return method.invoke(original, args); }
+            catch (java.lang.reflect.InvocationTargetException e) { throw e.getCause(); }
+        }));
     }
     private static int dp(Context c, int value) { return Math.round(value * c.getResources().getDisplayMetrics().density); }
     /**
@@ -174,6 +186,10 @@ public final class ClusterPanel {
             }
         }
         return false;
+    }
+    private static void zoom(Activity activity, boolean in) {
+        String problem = ClusterHost.zoom(in);
+        if (problem != null) Toast.makeText(activity, problem, Toast.LENGTH_SHORT).show();
     }
     private static TextView label(Context c, String text, int size) {
         TextView v = new TextView(c);
@@ -318,15 +334,26 @@ public final class ClusterPanel {
         slider(panel, c, "Pointer vertical offset (- up, + down)", ClusterSettings.POINTER_VERTICAL, -25, 25, s.pointerVertical);
         slider(panel, c, "Pointer horizontal offset (- left, + right)", ClusterSettings.POINTER_HORIZONTAL, -25, 25, s.pointerHorizontal);
         slider(panel, c, "Screen edge margin (Waze buttons and panels)", ClusterSettings.EDGE_MARGIN, 0, 48, s.edgeMargin, " dp");
-        panel.addView(label(c, "Cluster zoom test", 17));
+        panel.addView(label(c, "Cluster zoom", 17));
         LinearLayout zoom = new LinearLayout(c);
         zoom.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, -2, 1f);
         half.rightMargin = dp(c, 12);
-        zoom.addView(button(c, "Zoom out", v -> Toast.makeText(activity, ClusterHost.zoom(false), Toast.LENGTH_SHORT).show()), half);
-        zoom.addView(button(c, "Zoom in", v -> Toast.makeText(activity, ClusterHost.zoom(true), Toast.LENGTH_SHORT).show()), new LinearLayout.LayoutParams(0, -2, 1f));
+        zoom.addView(button(c, "Zoom out", v -> zoom(activity, false)), half);
+        zoom.addView(button(c, "Zoom in", v -> zoom(activity, true)), new LinearLayout.LayoutParams(0, -2, 1f));
         panel.addView(zoom);
-        panel.addView(label(c, "Experimental: tests whether Waze zooms the cluster map. Watch the cluster after each press.", 14));
+        panel.addView(label(c, "Steering-wheel zoom", 18));
+        toggle(panel, c, "Zoom the cluster map from the steering wheel", ClusterSettings.WHEEL_ZOOM, s.wheelZoom);
+        panel.addView(label(c, "The custom button switches volume + and - between cluster zoom and volume.", 14));
+        TextView wheelStatus = label(c, "", 14), wheelKeys = label(c, "", 14);
+        panel.addView(wheelStatus);
+        for (int role = 1; role <= 3; role++) {
+            final int assigned = role;
+            panel.addView(button(c, "Assign: " + WheelKeys.roleName(role), v -> WheelKeys.learn(assigned)), spaced(c));
+        }
+        panel.addView(button(c, "Restore BYD Tang buttons", v -> WheelKeys.restoreTang(activity)), spaced(c));
+        panel.addView(label(c, "Recent keys", 14));
+        panel.addView(wheelKeys);
         // Android 13 BYD builds (DiLink 5.1); also kept visible once the owner has chosen a profile.
         if (Build.VERSION.SDK_INT >= 33 || s.profile != DiLink51Layout.Profile.AUTOMATIC) {
             panel.addView(label(c, "DiLink 5.1 cluster layout", 18));
@@ -349,6 +376,16 @@ public final class ClusterPanel {
         AlertDialog dialog = new AlertDialog.Builder(c).setTitle("Instrument cluster").setView(scroll)
                 .setNeutralButton("Full screen", null).setPositiveButton("Done", null).create();
         final boolean[] full = {s.panelFullscreen};
+        // Keys go to the focused window, which is this panel while it is open.
+        dialog.setOnKeyListener((d, code, event) -> WheelKeys.handle(activity, event, "panel"));
+        wheelStatus.post(new Runnable() { public void run() {
+            if (!dialog.isShowing()) return;
+            String assignment = WheelKeys.assignment();
+            wheelStatus.setText(WheelKeys.status(activity) + "\n" + WheelKeys.roles(activity) + (assignment.isEmpty() ? "" : "\n" + assignment));
+            wheelKeys.setText(WheelKeys.recentKeys());
+            wheelStatus.postDelayed(this, 500);
+        }});
+        dialog.setOnDismissListener(d -> WheelKeys.cancelLearning());
         dialog.setOnShowListener(d -> {
             // Switching the size keeps the panel open; the choice is remembered for next time.
             dialog.getButton(DialogInterface.BUTTON_NEUTRAL).setOnClickListener(v -> {

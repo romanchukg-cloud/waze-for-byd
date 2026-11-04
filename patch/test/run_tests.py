@@ -23,10 +23,10 @@ if out.exists():
 (out / 'classes').mkdir(parents=True)
 sources = [root / 'src/local/waze/cluster' / (name + '.java') for name in
            ('GuidanceFrame', 'GuidanceSession', 'WazeGuidance', 'BydGuidanceBridge', 'StandaloneHudPackets', 'StandaloneHudGate', 'StandaloneHudOutput',
-            'DiLink51Layout', 'ClusterActivityState', 'ClusterActivityMonitor', 'ClusterSettings', 'ClusterStatus', 'ClusterTheme', 'AmapAdapter')]
+            'WheelKeyPolicy', 'DiLink51Layout', 'ClusterActivityState', 'ClusterActivityMonitor', 'ClusterSettings', 'ClusterStatus', 'ClusterTheme', 'AmapAdapter')]
 sources += sorted((root / 'src/local/waze/diagnostics').glob('*.java'))
 sources += [root / 'test/GuidanceTests.java', root / 'test/GuidanceAndroidTests.java', root / 'test/StandaloneHudTests.java',
-            root / 'test/ClusterLayoutTests.java']
+            root / 'test/ClusterLayoutTests.java', root / 'test/WheelKeyTests.java']
 
 def run(*command):
     subprocess.run(list(map(str, command)), check=True)
@@ -36,6 +36,7 @@ run('javac', '-source', '8', '-target', '8', '-Xlint:-options', '-cp',
 run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.GuidanceTests')
 run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.StandaloneHudTests')
 run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.ClusterLayoutTests')
+run('java', '-cp', f'{out / "classes"}:{root / "car-api.jar"}:{android}', 'local.waze.cluster.WheelKeyTests')
 if args.android_serial:
     (out / 'dex').mkdir()
     run(bt / 'd8', '--min-api', '29', '--lib', android, '--output', out / 'dex',

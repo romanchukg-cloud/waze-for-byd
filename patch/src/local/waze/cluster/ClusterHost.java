@@ -107,7 +107,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         displays.registerDisplayListener(this, main);
         ClusterSettings.prefs(app).registerOnSharedPreferenceChangeListener(clusterChanged);
         updateMonitor();
-        Log.i(TAG, "installed test.9; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
+        Log.i(TAG, "installed test.10; stock BYD guidance bridge enabled; DiLink 5.1 layout " + (layout51() ? "active" : "inactive"));
     }
     private void settingsChanged(String key) {
         if (ClusterSettings.POINTER_VERTICAL.equals(key) || ClusterSettings.POINTER_HORIZONTAL.equals(key)) { refreshArea(); return; }
@@ -202,12 +202,13 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         Log.i(TAG, "visible area " + next + " (pointer offset)");
     }
     private static final int ZOOM_STEPS = 6;
+    private static volatile boolean activitySeen;
     /**
      * Test of cluster zoom through Waze's own surface callback (AndroidX onScale), the same path a car
      * host uses for pinch gestures. Waze turns a run of onScale calls into one pinch: the first call puts
      * both fingers down, each later call moves them by its factor, and the pinch ends 400 ms after the last
      * call. So the test sends a neutral first step and then six steps 40 ms apart (about 2x in total).
-     * Returns a short result for the panel. Map content cannot be checked off the car.
+     * Returns a message for the panel when it could not be sent, otherwise null. Map content cannot be checked off the car.
      */
     public static String zoom(boolean in) {
         ClusterHost host = instance;
@@ -223,9 +224,23 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
                 catch (Exception e) { Log.e(TAG, "cluster zoom step", e); }
             }, i * 40L);
         }
-        String probe = gestureProbe(receiver);
-        Log.i(TAG, "cluster zoom " + (in ? "in" : "out") + " sent at " + area.centerX() + "," + area.centerY() + " in " + ZOOM_STEPS + " steps; " + probe);
-        return "Zoom " + (in ? "in" : "out") + " sent. " + probe;
+        Log.i(TAG, "cluster zoom " + (in ? "in" : "out") + " sent at " + area.centerX() + "," + area.centerY() + " in " + ZOOM_STEPS + " steps; " + gestureProbe(receiver));
+        return null;
+    }
+    /** Whether a zoom would reach the cluster map now. */
+    static boolean zoomReady() {
+        ClusterHost host = instance;
+        return host != null && host.callback != null && host.delivered != null && host.view != null;
+    }
+    /**
+     * The enabled key service keeps this process running even when nobody opened Waze. In that case the
+     * cluster map waits for the first Waze window, so it does not take the cluster from another navigation app.
+     */
+    static void activitySeen() {
+        if (activitySeen) return;
+        activitySeen = true;
+        ClusterHost host = instance;
+        if (host != null) host.main.post(host::reconcile);
     }
     /**
      * Diagnostic for the zoom test (names pinned to Waze 5.26.0.0): does Waze's cluster surface callback
@@ -317,6 +332,7 @@ public final class ClusterHost implements DisplayManager.DisplayListener {
         };
     }
     private void reconcile() {
+        if (!activitySeen && WheelKeys.listed(app)) return;
         main.removeCallbacks(retry);
         // Guidance must not depend on the map display or overlay permission.
         if (connection == null) {
