@@ -54,6 +54,12 @@ Match screen option like Google Maps' was tried in test.6 candidates:
 - **Settings location.** The DiLink 5.1 layout settings moved from Support to this
   panel. Support keeps the status.
 
+## Changes in test.10
+
+- **Steering-wheel zoom.** Off by default. See [steering-wheel zoom](wheel-zoom-research.md).
+- **Lane diagnostic.** Waze records its lane data for a later HUD decision. See the
+  [test.10 release notes](releases/v5.26.0.0-byd.test.10.md). Lanes are not sent to the HUD yet.
+
 ## Changes in test.7
 
 Checked on the reference DiLink 5.0 car and on an Android 13 emulator at the car's

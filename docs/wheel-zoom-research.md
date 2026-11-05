@@ -1,7 +1,8 @@
 # Steering-wheel map zoom
 
-Status on 2026-11-04: implemented in test.10 and not yet checked from the wheel. Zoom through
-the panel buttons was confirmed on a BYD Tang (DiLink 5.0) with test.9.
+Status on 2026-11-05: implemented in test.10. Physical wheel buttons are not yet checked. Zoom
+through the panel buttons was confirmed on a BYD Tang (DiLink 5.0) with test.9, and the key
+service was checked on the same car with test.10.
 
 ## How it works
 
@@ -14,8 +15,9 @@ zoom mode, during a call and while no cluster map is shown, the keys keep their 
   panel. **Recent keys** shows what arrives.
 - **Two ways in:**
   - a key-only accessibility service, which receives the keys in any app;
-  - the focused Waze window, which needs no setup. Whether BYD passes the keys to it is
-    still to be checked; the log tag `WazeWheel` shows the source of each key.
+  - the focused Waze window, which needs no setup. One other key from `simulate-keys` has
+    reached it, but the zoom buttons are still to be checked. **Recent keys** and the log
+    tag `WazeWheel` show the source of each key.
 - **Key service metadata:** Android reads the filter capability only from an XML resource, so
   the build adds one entry to Waze's resource table and leaves all other resources untouched.
 - **Cluster start:** the enabled service keeps the Waze process running. The cluster map then
@@ -24,10 +26,27 @@ zoom mode, during a call and while no cluster map is shown, the keys keep their 
 
 ## Known limits
 
-- BYD has no accessibility settings page, so the service must be enabled once over ADB.
-- According to Maps Automotive for BYD, the service stops being connected after the car
-  force-stops the app when it is switched off. This is not yet checked for Waze.
+- BYD has no accessibility settings page, so the service must be enabled over ADB.
+- After the car is switched off and on, the service stays listed but is no longer
+  connected, even after Waze is opened. Running the setup again reconnects it. Waze does
+  not yet do this by itself.
 - The policy is adapted from Maps Automotive for BYD (GPL-3.0-only).
+
+## Enable or reconnect the key service
+
+Run `adb shell` and enter these lines. They remove this service's own entry, add it again
+and keep all other services.
+
+```sh
+cur=$(settings get secure enabled_accessibility_services)
+own=com.waze/local.waze.cluster.WheelKeyService
+rest=$(echo "$cur" | sed -e "s#$own##g" -e 's/::*/:/g' -e 's/^://' -e 's/:$//' -e 's/^null$//')
+settings put secure enabled_accessibility_services "$rest"
+sleep 2
+settings put secure enabled_accessibility_services "${rest:+$rest:}$own"
+settings put secure accessibility_enabled 1
+exit
+```
 
 The research below dates from 2026-10-13 and from Waze 5.22.90.123, so its obfuscated names
 are out of date.

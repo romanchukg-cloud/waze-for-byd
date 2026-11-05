@@ -2,7 +2,7 @@
 
 Experimental built-in instrument-cluster host for Waze on BYD DiLink.
 
-The project adds a local AndroidX Car App host to Waze 5.26.0.0 (test.8; earlier
+The project adds a local AndroidX Car App host to Waze 5.26.0.0 (since test.8; earlier
 test builds used Waze 5.22.90.123). It opens
 Waze's own cluster session on a display whose name contains
 `XDJAScreenProjection`. The application label is **Waze for BYD**; the package
@@ -18,7 +18,7 @@ inputs and are not included.
 Prebuilt APKs are no longer published. This repository provides the patch
 source and the build tools; build an APK yourself from your own copy of the
 pinned Waze input APK (see [Build](#build)). The
-[release notes](docs/releases/v5.26.0.0-byd.test.8.md) describe what each
+[release notes](docs/releases/v5.26.0.0-byd.test.10.md) describe what each
 test build changed and how it was validated.
 
 **Requirements for a built APK:** Android 10+ and an ARM64 device. It keeps
@@ -128,7 +128,7 @@ sending off. A limited technical summary may appear in public GitHub Issues.
 
 The new DiLink 5.1 path requires an exact known firmware/receiver match and has not
 been physically verified in Waze. The earlier Android 12 AMap path remains available.
-[Steering-wheel zoom](docs/wheel-zoom-research.md) is implemented in test.10 and not yet checked from the wheel.
+[Steering-wheel zoom](docs/wheel-zoom-research.md) is implemented in test.10; physical wheel buttons are not yet checked.
 
 
 ### Requirements and command
